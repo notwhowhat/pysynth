@@ -161,6 +161,13 @@ with wave.open(file, 'rb') as wf:
 
     timer = current_time
     qenv = np.linspace(0, 2, CHUNK)
+
+    # this system works well if we know how long our notes will be. that isn't always the case.
+    # then we need to have a system that just multiplies it iwth an empty chunk if the env is too big.
+    lenvs = []
+    lenv = np.linspace(0, 2, 25 * CHUNK)
+    for i in range(10):
+        lenvs.append(lenv[i * CHUNK : i * CHUNK + CHUNK]) 
     # to here
 
     print(len(notes))
@@ -233,9 +240,22 @@ with wave.open(file, 'rb') as wf:
 
 
                         # this makes a simple sloped env for every chunk.
-                        osc = osc * qenv
+                        #osc = osc * qenv
+
                         # next thing to do is to take a long array 
                         # for to split it up in chunks now.
+
+                        # the envelope needs to be structured in a list
+                        # containing the envelope specific to the chunks
+                        print(note[4])
+                        #osc = osc * lenv
+                        # uses lenvs instead of the correct env
+                        if note[4] > len(lenvs) - 1:
+                            # the envelope is done, but the note is off
+                            osc = osc * 0
+                        else:
+                            # the envelope is good as usual.
+                            osc = osc * lenvs[note[4]]
 
                         osc = osc.astype(np.int16)
                         #plt.plot(osc)
