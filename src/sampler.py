@@ -99,13 +99,15 @@ def new_note(start, end, source, freq=440):
     #source = 's' # from sampler
     chunk = 0
     freq = random.randint(0, 12) # tones instead of freq
-    notes.append([start, end, freq, source, chunk])
-
+    # index 6 is true, which is sound on
+    notes.append([start, end, freq, source, chunk, True])
 
 
 def play_notes():
     for i, note in enumerate(notes):
-        if note[1] > time.time_ns():
+        #if note[1] > time.time_ns():
+        if note[5]:
+         
             # note gets played
             factor = get_factor(bass_freq, note[2])
             stream.write(speedx(converted_wave, factor).astype(np.int16).tobytes())
@@ -166,9 +168,20 @@ with wave.open(file, 'rb') as wf:
     # then we need to have a system that just multiplies it iwth an empty chunk if the env is too big.
     lenvs = []
     lenv = np.linspace(0, 2, 25 * CHUNK)
-    for i in range(10):
-        lenvs.append(lenv[i * CHUNK : i * CHUNK + CHUNK]) 
+    aenv = np.linspace(0, 16, 10 * CHUNK)
+    renv = np.linspace(16, 0, 10 * CHUNK)
+    arenv = np.append(aenv, renv)
+    for i in range(20):
+        #lenvs.append(lenv[i * CHUNK : i * CHUNK + CHUNK]) 
+        lenvs.append(arenv[i * CHUNK : i * CHUNK + CHUNK]) 
+    # to 
     # to here
+
+    flenv = np.array(())
+    for e in lenvs:
+        flenv = np.append(flenv, e)
+    plt.plot(flenv)
+    plt.show()
 
     print(len(notes))
     print(notes)
@@ -252,9 +265,17 @@ with wave.open(file, 'rb') as wf:
                         # uses lenvs instead of the correct env
                         if note[4] > len(lenvs) - 1:
                             # the envelope is done, but the note is off
+                            # sound is off
+                            #note[5] = False
                             osc = osc * 0
                         else:
                             # the envelope is good as usual.
+                            # TODO: add:
+                            # the problem with this implementation is that sustain doesn't work.
+                            # neither does relesase because the notes get retriggered instantly.
+                            # well time to take a brake for today.
+                            # for to accomplish that i think i need a note list/dict, where all of the notes
+                            # are stored, even after they have been triggered.
                             osc = osc * lenvs[note[4]]
 
                         osc = osc.astype(np.int16)
