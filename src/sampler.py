@@ -93,6 +93,22 @@ def speedx(sound_array, factor):
 #    chunk = 0
 #    notes.append([start, end, freq, source, chunk])
 
+class Note:
+    def __init__(self, start, end, source, freq=440.0):
+        # all of the times are in ns for performance.
+        self.start: int = start
+        self.end: int = end
+
+        # the source is if it is from the sampler or the 
+        # more "synth" like sine-wave generator
+        # TODO: make the source into an oscillator obj.
+        self.source: str = source
+        self.freq: float = freq
+        self.on: bool = True
+
+        # which chunk it is on.
+        self.chunk_step: int = 0
+
 def new_note(start, end, source, freq=440):
     #start = time.time_ns()
     #end = start + 1000000000
@@ -106,7 +122,7 @@ def new_note(start, end, source, freq=440):
 def play_notes():
     for i, note in enumerate(notes):
         #if note[1] > time.time_ns():
-        if note[5]:
+        if note.on:
             # note gets played
             factor = get_factor(bass_freq, note[2])
             stream.write(speedx(converted_wave, factor).astype(np.int16).tobytes())
@@ -152,7 +168,8 @@ with wave.open(file, 'rb') as wf:
         # uncomment under
         start = current_time + (i * whole_note_duration)
         #new_note(start, start + whole_note_duration, 's')
-        new_note(start, start + whole_note_duration, 'o')
+        #new_note(start, start + whole_note_duration, 'o')
+        notes.append(Note(start, start + whole_note_duration, 'o'))
 
     melody_start = time.time_ns()
     #new_note(melody_start, melody_start + whole_note_duration, 's'),
@@ -219,29 +236,29 @@ with wave.open(file, 'rb') as wf:
             # envelopes for the chunks
 
             # these first 2 checks see if the note is playing or not
-            if note[1] > time.time_ns():#current_time:
-                if note[0] < time.time_ns():
-                    if note[3] == 's': # noise source is sample so step the chunk param
+            if note.end > time.time_ns():#current_time:
+                if note.start < time.time_ns():
+                    if note.source == 's': # noise source is sample so step the chunk param
                         # using this implementation the list storing all note data wont be readonly
                         # but python still probably opens it for a write still. well it is probably
                         # quicker to use some more ram than semi-complex math on at least 10^12 numbers
 
                         # the samples are now pitched
-                        if note[4] < len(wav_chunks): # what chunk
-                            factor = get_factor(466.164, note[2]) # see the sun is in b flat
+                        if note.chunk_step < len(wav_chunks): # what chunk
+                            factor = get_factor(466.164, note.freq) # see the sun is in b flat
                             # speeds induvidual chunks. might not be grate, but it works for now
                             chunks.append(speedx(
-                                wav_chunks[note[4]],
+                                wav_chunks[note.chunk_step],
                                 factor
                             ))
 
-                            note[4] += 1 # the chunk param
+                            note.chunk_step += 1 # the chunk param
                             print(note)
 
-                    if note[3] == 'o': # noise source is osc
+                    if note.source == 'o': # noise source is osc
                         #osc = 1 * np.sin(2.0 * np.pi / (44100 / 440) * empty_chunk)
 
-                        start = note[4] * CHUNK
+                        start = note.chunk_step * CHUNK
 
                         #indexed_chunk = np.arange(note[4] + 0, note[4] + CHUNK)
                         indexed_chunk = np.arange(start + 0, start + CHUNK)
@@ -278,10 +295,10 @@ with wave.open(file, 'rb') as wf:
 
                         # the release gets cut off beacuse of a flawed polyphony/note system
                         # every note needs to be an object of a class instead of a list that's nested
-                        if note[4] < len(lenvs) - 1:
+                        if note.chunk_step < len(lenvs) - 1:
                             lenv_stage = True
                             renv_stage = False
-                        elif note[4] > len(lenvs) - len(renvs) - 1:
+                        elif note.chunk_step > len(lenvs) - len(renvs) - 1:
                             lenv_stage = False
                             renv_stage = True 
                         else:
@@ -296,17 +313,17 @@ with wave.open(file, 'rb') as wf:
                             # well time to take a brake for today.
                             # for to accomplish that i think i need a note list/dict, where all of the notes
                             # are stored, even after they have been triggered.
-                            osc = osc * lenvs[note[4]]
+                            osc = osc * lenvs[note.chunk_step]
 
                             # note[4] doesn't get reset, but the renv needs to start at 0
-                            last_note_step = note[4]
+                            last_note_step = note.chunk_step
                         elif renv_stage:
                             print('release yourself')
-                            osc = osc * renvs[note[4] - last_note_step]
+                            osc = osc * renvs[note.chunk_step - last_note_step]
                         else:
                             # none of the stages are on, therfore the sound should be terminated
                             osc = osc * 0
-                            note[5] = False
+                            note.on = False
                             #print('note off')
 
                         '''
@@ -346,7 +363,7 @@ with wave.open(file, 'rb') as wf:
                         #plt.plot(osc)
                         #plt.show()
 
-                        note[4] += 1 # the chunk param
+                        note.chunk_step += 1 # the chunk param
 
             else:
                 # the note must have finished then
