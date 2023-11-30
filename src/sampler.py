@@ -107,7 +107,6 @@ def play_notes():
     for i, note in enumerate(notes):
         #if note[1] > time.time_ns():
         if note[5]:
-         
             # note gets played
             factor = get_factor(bass_freq, note[2])
             stream.write(speedx(converted_wave, factor).astype(np.int16).tobytes())
@@ -167,16 +166,23 @@ with wave.open(file, 'rb') as wf:
     # this system works well if we know how long our notes will be. that isn't always the case.
     # then we need to have a system that just multiplies it iwth an empty chunk if the env is too big.
     lenvs = []
+    renvs = []
     lenv = np.linspace(0, 2, 25 * CHUNK)
     aenv = np.linspace(0, 16, 10 * CHUNK)
-    renv = np.linspace(16, 0, 10 * CHUNK)
-    arenv = np.append(aenv, renv)
+    denv = np.linspace(16, 8, 10 * CHUNK)
+
+    renv = np.linspace(8, 0, 50 * CHUNK)
+
+    adenv = np.append(aenv, denv)
     for i in range(20):
         #lenvs.append(lenv[i * CHUNK : i * CHUNK + CHUNK]) 
-        lenvs.append(arenv[i * CHUNK : i * CHUNK + CHUNK]) 
+        lenvs.append(adenv[i * CHUNK : i * CHUNK + CHUNK]) 
+    for i in range(50):
+        renvs.append(renv[i * CHUNK : i * CHUNK + CHUNK]) 
     # to 
     # to here
 
+    '''
     flenv = np.array(())
     for e in lenvs:
         flenv = np.append(flenv, e)
@@ -185,6 +191,7 @@ with wave.open(file, 'rb') as wf:
 
     print(len(notes))
     print(notes)
+    '''
 
 
     #while True:
@@ -260,15 +267,57 @@ with wave.open(file, 'rb') as wf:
 
                         # the envelope needs to be structured in a list
                         # containing the envelope specific to the chunks
-                        print(note[4])
+
+                        #print(note[4])
+
                         #osc = osc * lenv
                         # uses lenvs instead of the correct env
-                        if note[4] > len(lenvs) - 1:
-                            # the envelope is done, but the note is off
-                            # sound is off
-                            #note[5] = False
-                            osc = osc * 0
+
+                        # checks the states of the envelope
+                        #print(len(lenvs))
+
+                        # the release gets cut off beacuse of a flawed polyphony/note system
+                        # every note needs to be an object of a class instead of a list that's nested
+                        if note[4] < len(lenvs) - 1:
+                            lenv_stage = True
+                            renv_stage = False
+                        elif note[4] > len(lenvs) - len(renvs) - 1:
+                            lenv_stage = False
+                            renv_stage = True 
                         else:
+                            #print('off early')
+                            lenv_stage = False
+                            renv_stage = False
+
+                        if lenv_stage:
+                            # the ad env is on!
+                            print('ad')
+
+                            # well time to take a brake for today.
+                            # for to accomplish that i think i need a note list/dict, where all of the notes
+                            # are stored, even after they have been triggered.
+                            osc = osc * lenvs[note[4]]
+
+                            # note[4] doesn't get reset, but the renv needs to start at 0
+                            last_note_step = note[4]
+                        elif renv_stage:
+                            print('release yourself')
+                            osc = osc * renvs[note[4] - last_note_step]
+                        else:
+                            # none of the stages are on, therfore the sound should be terminated
+                            osc = osc * 0
+                            note[5] = False
+                            #print('note off')
+
+                        '''
+                            # the envelope is done, but the note is off
+                            # ad stage
+                            # sound is off
+                            # turns the audio off
+                            note[5] = False
+                            osc = osc * 0
+                        elif note[1] > time.time_ns():
+                            # the trigger is on
                             # the envelope is good as usual.
                             # TODO: add:
                             # the problem with this implementation is that sustain doesn't work.
@@ -277,6 +326,15 @@ with wave.open(file, 'rb') as wf:
                             # for to accomplish that i think i need a note list/dict, where all of the notes
                             # are stored, even after they have been triggered.
                             osc = osc * lenvs[note[4]]
+
+                            # note[4] doesn't get reset, but the renv needs to start at 0
+                            last_note_step = note[4]
+
+                        else:
+                            # rel env time
+                            print('rastage')
+                            osc = osc * renvs[note[4] - last_note_step]
+                        '''
 
                         osc = osc.astype(np.int16)
                         #plt.plot(osc)
