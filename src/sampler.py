@@ -121,7 +121,40 @@ class Amp:
             # use envelope first.
             pass
 
-        chunk * gain
+        chunk * self.gain
+
+class Voice:
+    def __init__(self):
+        # the voice's purpoouse is to be able to use instances for the notes.
+        # handles and playes the note that is sent to it.
+        self.amp = Amp()
+        self.note: Note
+
+    def get_chunk(self):
+        current_time: int = time.time_ns()
+        if self.note.end > current_time:
+            if self.note.start < current_time:
+                # the note is on
+
+                start = self.note.chunk_step * CHUNK
+
+                indexed_chunk = np.arange(start + 0, start + CHUNK)
+                osc = 1000 * np.sin(2.0 * np.pi / (44100 / 440) * indexed_chunk)
+
+                # this makes a simple sloped env for every chunk.
+                #osc = osc * qenv
+
+                # next thing to do is to take a long array 
+                # for to split it up in chunks now.
+
+                # the envelope needs to be structured in a list
+                # containing the envelope specific to the chunks
+
+                # the release gets cut off beacuse of a flawed polyphony/note system
+                # every note needs to be an object of a class instead of a list that's nested
+                
+                return osc
+        return np.zeros((CHUNK))
 
 class Envelope:
     def __init__(self, note: Note) -> None:
@@ -140,7 +173,11 @@ class Envelope:
 
     def trigger(self) -> None:
         # the envelope as just started going
+        # reset the envelope too.
         self.ad_state = True
+        self.r_state = False
+        self.last_note_step = 0
+
 
     def update(self, chunk: np.ndarray) -> None:
         # just a basic update method
@@ -282,8 +319,24 @@ with wave.open(file, 'rb') as wf:
     #while True:
     empty_chunk = np.zeros(CHUNK)
 
+    voice: Voice = Voice()
+    voice.note = notes[0]
+
     while notes:
         chunks = []
+        chunks.append(voice.get_chunk().astype(np.int16))
+        #osc = osc.astype(np.int16)
+        #plt.plot(osc)
+        #plt.show()
+        #print(note[4])
+        #chunks.append(osc)
+        #print('play')
+
+        #plt.plot(osc)
+        #plt.show()
+
+        voice.note.chunk_step += 1 # the chunk param
+
         for note in notes: 
             current_time = time.time_ns()
 
@@ -304,6 +357,7 @@ with wave.open(file, 'rb') as wf:
             # envelopes for the chunks
 
             # these first 2 checks see if the note is playing or not
+            '''
             if note.end > time.time_ns():#current_time:
                 if note.start < time.time_ns():
                     if note.source == 's': # noise source is sample so step the chunk param
@@ -333,17 +387,6 @@ with wave.open(file, 'rb') as wf:
                         # osc -> oscillation
                         osc = 1000 * np.sin(2.0 * np.pi / (44100 / 440) * indexed_chunk)
 
-                        #osc *= chunk_env
-                        #osc *= fade_chunks[note[4]]
-
-                        # vol env time!
-                        #print('before ' + str(osc)) 
-                        #plt.plot(osc)
-
-                        #osc = envelope_chunks[note[4]] * osc
-                        #print('after ' + str(osc)) 
-
-
                         # this makes a simple sloped env for every chunk.
                         #osc = osc * qenv
 
@@ -352,14 +395,6 @@ with wave.open(file, 'rb') as wf:
 
                         # the envelope needs to be structured in a list
                         # containing the envelope specific to the chunks
-
-                        #print(note[4])
-
-                        #osc = osc * lenv
-                        # uses lenvs instead of the correct env
-
-                        # checks the states of the envelope
-                        #print(len(lenvs))
 
                         # the release gets cut off beacuse of a flawed polyphony/note system
                         # every note needs to be an object of a class instead of a list that's nested
@@ -394,7 +429,6 @@ with wave.open(file, 'rb') as wf:
                             note.on = False
                             #print('note off')
 
-                        '''
                             # the envelope is done, but the note is off
                             # ad stage
                             # sound is off
@@ -421,6 +455,7 @@ with wave.open(file, 'rb') as wf:
                             osc = osc * renvs[note[4] - last_note_step]
                         '''
 
+            '''
                         osc = osc.astype(np.int16)
                         #plt.plot(osc)
                         #plt.show()
@@ -440,6 +475,7 @@ with wave.open(file, 'rb') as wf:
 
             #chunks.append(wav_chunks[step])
 
+            '''
 
         #print(chunks)
         play(*chunks)
