@@ -94,7 +94,8 @@ def speedx(sound_array, factor):
 #    notes.append([start, end, freq, source, chunk])
 
 class Note:
-    def __init__(self, start, end, source, freq=440.0):
+    def __init__(self, start: int, end: int, source: str, freq: float = 440.0) -> None:
+        # only note data, no audio data :(
         # all of the times are in ns for performance.
         self.start: int = start
         self.end: int = end
@@ -108,6 +109,73 @@ class Note:
 
         # which chunk it is on.
         self.chunk_step: int = 0
+
+class Amp:
+    def __init__(self):
+        self.modulator: Envelope
+        # the gain isn't in dB, it's instead just a modifier.
+        self.gain: float = 1
+
+    def amplify(self, chunk: np.ndarray):
+        if self.modulator != None:
+            # use envelope first.
+            pass
+
+        chunk * gain
+
+class Envelope:
+    def __init__(self, note: Note) -> None:
+        # the envelope shouldn't be owned by the Note, because
+        # it is connected to a voice instead
+        self.note: Note = note
+
+        self.ad_state: bool = False
+        self.r_state: bool = False
+        
+        # env is unfortunatelly hardcoded :(
+        self.ad_env = np.linspace(0, 16, CHUNK * 5)
+        self.r_env = np.linspace(16, 0, CHUNK * 5)
+
+        self.last_note_step: int
+
+    def trigger(self) -> None:
+        # the envelope as just started going
+        self.ad_state = True
+
+    def update(self, chunk: np.ndarray) -> None:
+        # just a basic update method
+
+        # the release gets cut off beacuse of a flawed polyphony/note system
+        # every note needs to be an object of a class instead of a list that's nested
+        if self.note.chunk_step < len(self.ad_env) - 1:
+            self.ad_state = True
+            self.r_state = False
+        elif note.chunk_step > len(self.ad_env) - len(self.r_env) - 1:
+            self.ad_state = False
+            self.r_state = True
+        else:
+            # note is compleetly off, turns everything off
+            self.ad_state = False
+            self.r_state = False
+
+        if self.ad_state:
+            # the ad env is on!
+            print('ad')
+
+            # well time to take a brake for today.
+            # for to accomplish that i think i need a note list/dict, where all of the notes
+            # are stored, even after they have been triggered.
+            chunk = chunk * self.ad_env[self.note.chunk_step]
+
+            # the previous step is saved for renv calculations
+            self.last_note_step = self.note.chunk_step
+        elif self.r_state:
+            print('release yourself')
+            chunk = chunk * self.r_env[self.note.chunk_step - self.last_note_step]
+        else:
+            # none of the stages are on, therfore the sound should be terminated
+            chunk = chunk * 0
+            self.note.on = False
 
 def new_note(start, end, source, freq=440):
     #start = time.time_ns()
