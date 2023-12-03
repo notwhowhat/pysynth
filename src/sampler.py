@@ -61,10 +61,10 @@ for e in envelopes:
     envelope = np.append(envelope, e)
 
 envelope_chunks = chunkify(envelope)
-print(len(envelope))
-print('i')
-for c in envelope_chunks:
-    print(len(c))
+#print(len(envelope))
+#print('i')
+#for c in envelope_chunks:
+    #print(len(c))
 
 fade_env = np.linspace(0, 2, 44100)
 fade_chunks = chunkify(fade_env)
@@ -106,68 +106,116 @@ class Note:
         self.source: str = source
         self.freq: float = freq
         self.on: bool = True
+        self.triggered = False
 
         # which chunk it is on.
         self.chunk_step: int = 0
-
-class Amp:
-    def __init__(self):
-        self.modulator: Envelope
-        # the gain isn't in dB, it's instead just a modifier.
-        self.gain: float = 1
-
-    def amplify(self, chunk: np.ndarray):
-        if self.modulator != None:
-            # use envelope first.
-            pass
-
-        chunk * self.gain
 
 class Voice:
     def __init__(self):
         # the voice's purpoouse is to be able to use instances for the notes.
         # handles and playes the note that is sent to it.
-        self.amp = Amp()
+        self.amp = Amp(self)
         self.note: Note
 
     def get_chunk(self):
         current_time: int = time.time_ns()
+        #print(self.note.start - current_time)
+
+        # now everything stops if the note does so too.
+        # these features should be independent.
         if self.note.end > current_time:
             if self.note.start < current_time:
-                # the note is on
+                # the note is being held on.
+                print('will be on')
+                self.note.triggered = True
+        else:
+            print('will be off')
+            self.note.triggered = False
+        #return np.zeros((CHUNK))
 
-                start = self.note.chunk_step * CHUNK
+        if self.note.on:
+            # the envelope hasn't finnished, so the sound is on!
 
-                indexed_chunk = np.arange(start + 0, start + CHUNK)
-                osc = 1000 * np.sin(2.0 * np.pi / (44100 / 440) * indexed_chunk)
+            # this triggering system is flawed, and turns off the note instead of
+            # depending on the envelope.
+            # the note is on
 
-                # this makes a simple sloped env for every chunk.
-                #osc = osc * qenv
+            start = self.note.chunk_step * CHUNK
 
-                # next thing to do is to take a long array 
-                # for to split it up in chunks now.
+            indexed_chunk = np.arange(start + 0, start + CHUNK)
+            chunk = 1000 * np.sin(2.0 * np.pi / (44100 / 440) * indexed_chunk)
 
-                # the envelope needs to be structured in a list
-                # containing the envelope specific to the chunks
+            # this makes a simple sloped env for every chunk.
+            # next thing to do is to take a long array 
+            # for to split it up in chunks now.
 
-                # the release gets cut off beacuse of a flawed polyphony/note system
-                # every note needs to be an object of a class instead of a list that's nested
-                
-                return osc
+            # the envelope needs to be structured in a list
+            # containing the envelope specific to the chunks
+
+            # the release gets cut off beacuse of a flawed polyphony/note system
+            # every note needs to be an object of a class instead of a list that's nested
+            self.amp.amplify(chunk)
+            #print(chunk)
+            
+            return chunk
         return np.zeros((CHUNK))
 
+
+
+
+class Amp:
+    def __init__(self, voice: Voice):
+        self.voice: Voice = voice
+        #self.modulator: Envelope = None
+        self.mod: Envelope = Envelope(self.voice)
+        self.mod_on: bool = True
+        
+        # the gain isn't in dB, it's instead just a modifier.
+        self.gain: float = 1
+
+    def amplify(self, chunk: np.ndarray):
+        if self.mod_on:
+            if self.mod != None:
+                # use envelope first.
+                chunk *= self.mod.get_env(self.voice.note)
+                #print(self.mod.get_env(self.voice.note))
+                pass
+        else:
+            # turns the note off when the trigger is removed.
+            if not self.voice.note.triggered:
+                #print('stop time')
+                chunk *= 0
+                self.voice.note.on = False
+
+        chunk *= self.gain
+
+
 class Envelope:
-    def __init__(self, note: Note) -> None:
+    def __init__(self, voice: Voice) -> None:
         # the envelope shouldn't be owned by the Note, because
         # it is connected to a voice instead
-        self.note: Note = note
+        self.voice: Voice = voice
 
         self.ad_state: bool = False
         self.r_state: bool = False
         
         # env is unfortunatelly hardcoded :(
-        self.ad_env = np.linspace(0, 16, CHUNK * 5)
-        self.r_env = np.linspace(16, 0, CHUNK * 5)
+        self.ad_env = np.linspace(0, 16, CHUNK * 100)
+        self.r_env = np.linspace(16, 0, CHUNK * 100)
+
+        #self.r_list = []
+        #self.ad_list = []
+
+        self.ad_list = chunkify(self.ad_env)
+        self.r_list = chunkify(self.r_env)
+        #print(self.ad_list)
+        #print(self.r_list)
+
+        #for i in range(50):
+        #    self.ad_list.append(self.ad_env[i * CHUNK : i * CHUNK + CHUNK]) 
+        #for i in range(50):
+        #    self.r_list.append(self.r_env[i * CHUNK : i * CHUNK + CHUNK]) 
 
         self.last_note_step: int
 
@@ -179,40 +227,59 @@ class Envelope:
         self.last_note_step = 0
 
 
-    def update(self, chunk: np.ndarray) -> None:
+    def get_env(self, note: Note) -> None:
         # just a basic update method
+        self.note = note
+
+        if self.note.chunk_step == 0:
+            # if it is 0, it is a new note, so the env should be reset.
+            self.trigger()
 
         # the release gets cut off beacuse of a flawed polyphony/note system
         # every note needs to be an object of a class instead of a list that's nested
-        if self.note.chunk_step < len(self.ad_env) - 1:
+        if self.note.chunk_step < len(self.ad_list) - 1:
             self.ad_state = True
             self.r_state = False
-        elif note.chunk_step > len(self.ad_env) - len(self.r_env) - 1:
-            self.ad_state = False
-            self.r_state = True
+        elif note.chunk_step > len(self.ad_list) - self.last_note_step - 1:
+            #if len(self.ad_list) - self.last_note_step - 1 > len(self.r_list) - 2:
+             
+            if note.chunk_step >= len(self.ad_list) + len(self.r_list) - 2:
+                self.ad_state = False
+                self.r_state = False
+                print('stopped it')
+            else:
+                print('works not')
+                self.ad_state = False
+                self.r_state = True
+
+            #self.ad_state = False
+            #self.r_state = True
         else:
             # note is compleetly off, turns everything off
             self.ad_state = False
             self.r_state = False
+            pass
 
         if self.ad_state:
             # the ad env is on!
-            print('ad')
+            #print('ad')
 
             # well time to take a brake for today.
             # for to accomplish that i think i need a note list/dict, where all of the notes
             # are stored, even after they have been triggered.
-            chunk = chunk * self.ad_env[self.note.chunk_step]
+            env = self.ad_list[self.note.chunk_step]
 
             # the previous step is saved for renv calculations
             self.last_note_step = self.note.chunk_step
         elif self.r_state:
-            print('release yourself')
-            chunk = chunk * self.r_env[self.note.chunk_step - self.last_note_step]
+            #print('release yourself')
+
+            env = self.r_list[self.note.chunk_step - self.last_note_step]
         else:
             # none of the stages are on, therfore the sound should be terminated
-            chunk = chunk * 0
+            env = np.zeros((CHUNK))
             self.note.on = False
+        return env
 
 def new_note(start, end, source, freq=440):
     #start = time.time_ns()
@@ -265,6 +332,9 @@ with wave.open(file, 'rb') as wf:
 
     # about 2 ms from here
     current_time = time.time_ns()
+    # TODO: Make the timings relative, because otherwise the load times of the notes
+    # do so that they don't get played, because the loading is 1.1+ seconds, when a note
+    # can be less than 1 sec.
     for i in range(16):
         # add notes
         #start = current_time + (i * 1000000000 * 2)
@@ -274,7 +344,7 @@ with wave.open(file, 'rb') as wf:
         start = current_time + (i * whole_note_duration)
         #new_note(start, start + whole_note_duration, 's')
         #new_note(start, start + whole_note_duration, 'o')
-        notes.append(Note(start, start + whole_note_duration, 'o'))
+        notes.append(Note(start, start + 10 * whole_note_duration, 'o'))
 
     melody_start = time.time_ns()
     #new_note(melody_start, melody_start + whole_note_duration, 's'),
@@ -324,6 +394,7 @@ with wave.open(file, 'rb') as wf:
 
     while notes:
         chunks = []
+        print(voice.get_chunk())
         chunks.append(voice.get_chunk().astype(np.int16))
         #osc = osc.astype(np.int16)
         #plt.plot(osc)
