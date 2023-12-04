@@ -201,14 +201,16 @@ class Envelope:
         self.r_state: bool = False
         
         # env is unfortunatelly hardcoded :(
-        self.ad_env = np.linspace(0, 16, CHUNK * 100)
-        self.r_env = np.linspace(16, 0, CHUNK * 100)
+        self.ad_env: np.ndarray = np.linspace(0, 16, CHUNK * 100)
+        self.r_env: np.ndarray = np.linspace(16, 0, CHUNK * 100)
+        self.s_level: float = 8
+        self.end: np.ndarray = np.zeros((CHUNK))
 
         #self.r_list = []
         #self.ad_list = []
 
-        self.ad_list = chunkify(self.ad_env)
-        self.r_list = chunkify(self.r_env)
+        self.ad_list: list = chunkify(self.ad_env)
+        self.r_list: list = chunkify(self.r_env)
         #print(self.ad_list)
         #print(self.r_list)
 
@@ -227,7 +229,7 @@ class Envelope:
         self.last_note_step = 0
 
 
-    def get_env(self, note: Note) -> None:
+    def get_env(self, note: Note) -> np.ndarray:
         # just a basic update method
         self.note = note
 
@@ -238,28 +240,21 @@ class Envelope:
         # the release gets cut off beacuse of a flawed polyphony/note system
         # every note needs to be an object of a class instead of a list that's nested
         if self.note.chunk_step < len(self.ad_list) - 1:
-            self.ad_state = True
-            self.r_state = False
+            # ad stage
+            env = self.get_ad(note.chunk_step)
         elif note.chunk_step > len(self.ad_list) - self.last_note_step - 1:
-            #if len(self.ad_list) - self.last_note_step - 1 > len(self.r_list) - 2:
-             
+            # r stage
             if note.chunk_step >= len(self.ad_list) + len(self.r_list) - 2:
-                self.ad_state = False
-                self.r_state = False
-                print('stopped it')
+                # note is compleetly off, but it still exists
+                env = self.get_end()
             else:
-                print('works not')
-                self.ad_state = False
-                self.r_state = True
-
-            #self.ad_state = False
-            #self.r_state = True
+                # release is on
+                env = self.get_r(note.chunk_step)
         else:
-            # note is compleetly off, turns everything off
-            self.ad_state = False
-            self.r_state = False
-            pass
+            # note is compleetly off, but it still exists
+            env = self.get_end()
 
+        '''
         if self.ad_state:
             # the ad env is on!
             #print('ad')
@@ -269,7 +264,7 @@ class Envelope:
             # are stored, even after they have been triggered.
             env = self.ad_list[self.note.chunk_step]
 
-            # the previous step is saved for renv calculations
+            # the previous step is saved for renv calculationsa
             self.last_note_step = self.note.chunk_step
         elif self.r_state:
             #print('release yourself')
@@ -279,7 +274,23 @@ class Envelope:
             # none of the stages are on, therfore the sound should be terminated
             env = np.zeros((CHUNK))
             self.note.on = False
+        '''
         return env
+
+    def get_ad(self, chunk_step: int) -> np.ndarray:
+        self.last_note_step = chunk_step
+        return self.ad_list[chunk_step]
+
+    def get_s(self, chunk_step: int) -> np.ndarray:
+        self.last_note_step = chunk_step
+        return np.full((CHUNK), self.s_level)
+
+    def get_r(self, chunk_step: int) -> np.ndarray:
+        return self.r_list[chunk_step - self.last_note_step]
+
+    def get_end(self) -> np.ndarray:
+        return self.end
+
 
 def new_note(start, end, source, freq=440):
     #start = time.time_ns()
