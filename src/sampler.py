@@ -127,10 +127,10 @@ class Voice:
         if self.note.end > current_time:
             if self.note.start < current_time:
                 # the note is being held on.
-                print('will be on')
+                print('on')
                 self.note.triggered = True
         else:
-            print('will be off')
+            print('off')
             self.note.triggered = False
         #return np.zeros((CHUNK))
 
@@ -156,28 +156,43 @@ class Voice:
             # the release gets cut off beacuse of a flawed polyphony/note system
             # every note needs to be an object of a class instead of a list that's nested
             self.amp.amplify(chunk)
-            #print(chunk)
             
             return chunk
         return np.zeros((CHUNK))
+
+class LFO:
+    def __init__(self, voice: Voice) -> None:
+        # a basic lfo class to modulate other signals.
+        # do not use as a standalone oscillator
+        self.on: bool = True
+        self.tau: float = 2.0 * np.pi
+        self.rate: float = 2.0
+        self.depth: int = 1
+
+    def get_osc(self, note: Note):
+        # the oscillations are not pregenerated, instead they are done in
+        # "realtime" because they are offsett by chunks, for to reduce clicking
+        indexed_chunk: np.ndarray = np.arange(note.chunk_step * CHUNK, 
+                                              note.chunk_step * CHUNK + CHUNK)
+        return self.depth * np.sin(self.tau / (44100 / self.rate) * indexed_chunk)
 
 class Amp:
     def __init__(self, voice: Voice):
         self.voice: Voice = voice
         #self.modulator: Envelope = None
-        self.mod: Envelope = Envelope(self.voice)
-        self.mod_on: bool = True
+        self.env: Envelope = Envelope(self.voice)
+        #self.env_on: bool = False
+        self.mod: LFO = LFO(self.voice)
+        #self.mod_on: bool = True
         
         # the gain isn't in dB, it's instead just a modifier.
         self.gain: float = 1
 
     def amplify(self, chunk: np.ndarray):
-        if self.mod_on:
-            if self.mod != None:
+        if self.env.on:
+            if self.env != None:
                 # use envelope first.
-                chunk *= self.mod.get_env(self.voice.note)
-                #print(self.mod.get_env(self.voice.note))
-                pass
+                chunk *= self.env.get_env(self.voice.note)
         else:
             # turns the note off when the trigger is removed.
             if not self.voice.note.triggered:
@@ -185,14 +200,19 @@ class Amp:
                 chunk *= 0
                 self.voice.note.on = False
 
-        chunk *= self.gain
+        if self.mod.on:
+            if self.mod != None:
+                # use modulator after.
+                chunk *= self.mod.get_osc(self.voice.note)
 
+        chunk *= self.gain
 
 class Envelope:
     def __init__(self, voice: Voice) -> None:
         # the envelope shouldn't be owned by the Note, because
         # it is connected to a voice instead
         self.voice: Voice = voice
+        self.on: bool = True
 
         self.ad_state: bool = False
         self.r_state: bool = False
