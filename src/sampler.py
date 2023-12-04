@@ -112,15 +112,14 @@ class Note:
         self.chunk_step: int = 0
 
 class Voice:
-    def __init__(self):
+    def __init__(self) -> None:
         # the voice's purpoouse is to be able to use instances for the notes.
         # handles and playes the note that is sent to it.
-        self.amp = Amp(self)
+        self.amp: Amp = Amp(self)
         self.note: Note
 
-    def get_chunk(self):
+    def get_chunk(self) -> np.ndarray:
         current_time: int = time.time_ns()
-        #print(self.note.start - current_time)
 
         # now everything stops if the note does so too.
         # these features should be independent.
@@ -179,11 +178,8 @@ class LFO:
 class Amp:
     def __init__(self, voice: Voice):
         self.voice: Voice = voice
-        #self.modulator: Envelope = None
         self.env: Envelope = Envelope(self.voice)
-        #self.env_on: bool = False
         self.mod: LFO = LFO(self.voice)
-        #self.mod_on: bool = True
         
         # the gain isn't in dB, it's instead just a modifier.
         self.gain: float = 1
@@ -212,7 +208,7 @@ class Envelope:
         # the envelope shouldn't be owned by the Note, because
         # it is connected to a voice instead
         self.voice: Voice = voice
-        self.on: bool = True
+        self.on: bool = False
 
         self.ad_state: bool = False
         self.r_state: bool = False
@@ -325,11 +321,11 @@ with wave.open(file, 'rb') as wf:
 
     #stream.write(raw_wave)
 
-    converted_wave = np.frombuffer(raw_wave, dtype=np.int16)
+    #converted_wave = np.frombuffer(raw_wave, dtype=np.int16)
 
     #stream.write(speedx(converted_wave, 2).tobytes())
 
-    wav_chunks = chunkify(converted_wave * 0.4)
+    #wav_chunks = chunkify(converted_wave * 0.4)
     #new_note()
     step = 0
 
@@ -391,6 +387,7 @@ with wave.open(file, 'rb') as wf:
 
     #while True:
     empty_chunk = np.zeros(CHUNK)
+    voice_count: int = 2
 
     voice: Voice = Voice()
     voice.note = notes[0]
@@ -399,6 +396,13 @@ with wave.open(file, 'rb') as wf:
         chunks = []
         print(voice.get_chunk())
         chunks.append(voice.get_chunk().astype(np.int16))
+
+        # the worst voice handler ever!
+        for note in notes:
+            if note.start < current_time:
+                # the note is active. therefore it needs a voice
+                voice.note = note
+ 
         #osc = osc.astype(np.int16)
         #plt.plot(osc)
         #plt.show()
