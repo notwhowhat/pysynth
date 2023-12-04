@@ -161,9 +161,6 @@ class Voice:
             return chunk
         return np.zeros((CHUNK))
 
-
-
-
 class Amp:
     def __init__(self, voice: Voice):
         self.voice: Voice = voice
@@ -206,18 +203,8 @@ class Envelope:
         self.s_level: float = 8
         self.end: np.ndarray = np.zeros((CHUNK))
 
-        #self.r_list = []
-        #self.ad_list = []
-
         self.ad_list: list = chunkify(self.ad_env)
         self.r_list: list = chunkify(self.r_env)
-        #print(self.ad_list)
-        #print(self.r_list)
-
-        #for i in range(50):
-        #    self.ad_list.append(self.ad_env[i * CHUNK : i * CHUNK + CHUNK]) 
-        #for i in range(50):
-        #    self.r_list.append(self.r_env[i * CHUNK : i * CHUNK + CHUNK]) 
 
         self.last_note_step: int
 
@@ -239,9 +226,15 @@ class Envelope:
 
         # the release gets cut off beacuse of a flawed polyphony/note system
         # every note needs to be an object of a class instead of a list that's nested
+        # it has some charming but buggy vibrato sound to it, will maybe investigate
+        # in the future
         if self.note.chunk_step < len(self.ad_list) - 1:
             # ad stage
             env = self.get_ad(note.chunk_step)
+        elif self.note.triggered:
+            # s stage
+            # it only gets here when the note is on.
+            env = self.get_s(self.last_note_step)
         elif note.chunk_step > len(self.ad_list) - self.last_note_step - 1:
             # r stage
             if note.chunk_step >= len(self.ad_list) + len(self.r_list) - 2:
@@ -254,27 +247,6 @@ class Envelope:
             # note is compleetly off, but it still exists
             env = self.get_end()
 
-        '''
-        if self.ad_state:
-            # the ad env is on!
-            #print('ad')
-
-            # well time to take a brake for today.
-            # for to accomplish that i think i need a note list/dict, where all of the notes
-            # are stored, even after they have been triggered.
-            env = self.ad_list[self.note.chunk_step]
-
-            # the previous step is saved for renv calculationsa
-            self.last_note_step = self.note.chunk_step
-        elif self.r_state:
-            #print('release yourself')
-
-            env = self.r_list[self.note.chunk_step - self.last_note_step]
-        else:
-            # none of the stages are on, therfore the sound should be terminated
-            env = np.zeros((CHUNK))
-            self.note.on = False
-        '''
         return env
 
     def get_ad(self, chunk_step: int) -> np.ndarray:
