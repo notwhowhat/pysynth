@@ -116,7 +116,7 @@ class Voice:
         # the voice's purpoouse is to be able to use instances for the notes.
         # handles and playes the note that is sent to it.
         self.amp: Amp = Amp(self)
-        self.note: Note = None
+        self.note: Note
 
     def get_chunk(self) -> np.ndarray:
         current_time: int = time.time_ns()
@@ -163,7 +163,7 @@ class LFO:
     def __init__(self, voice: Voice) -> None:
         # a basic lfo class to modulate other signals.
         # do not use as a standalone oscillator
-        self.on: bool = False
+        self.on: bool = True
         self.tau: float = 2.0 * np.pi
         self.rate: float = 2.0
         self.depth: int = 1
@@ -386,127 +386,22 @@ with wave.open(file, 'rb') as wf:
 
 
     #while True:
-
     empty_chunk = np.zeros(CHUNK)
     voice_count: int = 2
 
-    voices: list = []
-    for i in range(voice_count):
-        voices.append(Voice())
-
-    #voice: Voice = Voice()
-    #voice.note = notes[0]
+    voice: Voice = Voice()
+    voice.note = notes[0]
 
     while notes:
-        # what needs to be done per cycle:
-        # first, the notes need to be checked for the oldest one
-        # then, the new notes need to distributed.
-        # the voices need the notes for to make the chunks
-        # they need to be before the making of chunks
-        # collect chunks from voices
-        # play all chunk
+        chunks = []
+        print(voice.get_chunk())
+        chunks.append(voice.get_chunk().astype(np.int16))
 
         # the worst voice handler ever!
-        #print(notes)
-        free_voices: list = []
-        sorted_voices: list = []
-        #for voice in voices:
-        #    if voice.note.end < current_time:
-        #        # the voice is free
-        #        voice.append(free_voices)
-
-        chunks: list = []
-
-        started_notes: list = []
-        usable_voices: list = voices
-
-        # this code has two major bugs/flaws.
-        # the first one is that both voices get triggered at the same time while
-        # only one note is on.
-
-        # i actually think that the problem comes from the notes not being
-        # removed from the original note list properly.
-
-        # the second problem is that this voice operation takes a bunch of processing power.
-        # therfore everything lags behind, and then tons of pops appear. fix this by using
-        # the callback to portaudio.
-
-
-        # first the notes needed to be distributed are collected
         for note in notes:
             if note.start < current_time:
-                started_notes.append(note)
-                print('ppending')
-
-
-        print(started_notes)
-        # they are then removed, so that the voices's notes 
-        # don't get reset every time, because the envelopes might not work
-        # that well
-        for note in started_notes:
-            notes.remove(note)
-
-            print(note in notes)
-
-        # to this part of the code works.
-
-        # now the voices have been sorted.
-        # the system will only work on voices that are free to start with
-        # there are notes that need to be allocated
-
-
-        for v in voices:
-            # it has to run throuh the voices for to play sound
-            if len(started_notes) > 0:
-                # it takes the first note
-                v.note = started_notes[0]
-                started_notes.pop(0)
-                print(started_notes)
-
-            if v.note != None:
-                # a note exsits, so play time!
-                chunks.append(v.get_chunk().astype(np.int16))
-                v.note.chunk_step += 1 # the chunk param
-            else:
-                print('llllllllllllllloooooooooooooooonnnnnnnnnnnnnnnnggggggggggggg')
-
-        #print(current_time - time.time_ns())
-        #print(len(chunks))
-
-
-
-
-
-
-        '''
-
-
-
-        for v in voices:
-            if voice.note == None:
-                # note doesn't exist. 
-                free_voices.append(v)
-
-
-        #print('len' + str(len(sorted_voices)))
-        sorted_voices.sort(key=lambda e: e.note.start)
-        ordered_voices: list = free_voices + sorted_voices
-
-        for note in notes:
-            if note.start < current_time:
-                # the note is on! therfore it needs to be sent to a voice.
-                # the notes get removed after they have been tooken control by the voice
-                ordered_voices[0].note = note
-                ordered_voices.pop(0)
-
-        chunks: list = []
-        print(len(voices))
-        for voice in voices:
-            try:
-                voice.note
-                chunks.append(voice.get_chunk().astype(np.int16))
-            except:
-                pass
+                # the note is active. therefore it needs a voice
+                voice.note = note
  
         #osc = osc.astype(np.int16)
         #plt.plot(osc)
@@ -517,9 +412,8 @@ with wave.open(file, 'rb') as wf:
 
         #plt.plot(osc)
         #plt.show()
-        '''
 
-        #voice.note.chunk_step += 1 # the chunk param
+        voice.note.chunk_step += 1 # the chunk param
 
         for note in notes: 
             current_time = time.time_ns()
