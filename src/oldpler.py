@@ -112,14 +112,15 @@ class Note:
         self.chunk_step: int = 0
 
 class Voice:
-    def __init__(self) -> None:
+    def __init__(self):
         # the voice's purpoouse is to be able to use instances for the notes.
         # handles and playes the note that is sent to it.
-        self.amp: Amp = Amp(self)
+        self.amp = Amp(self)
         self.note: Note
 
-    def get_chunk(self) -> np.ndarray:
+    def get_chunk(self):
         current_time: int = time.time_ns()
+        #print(self.note.start - current_time)
 
         # now everything stops if the note does so too.
         # these features should be independent.
@@ -178,8 +179,11 @@ class LFO:
 class Amp:
     def __init__(self, voice: Voice):
         self.voice: Voice = voice
+        #self.modulator: Envelope = None
         self.env: Envelope = Envelope(self.voice)
+        #self.env_on: bool = False
         self.mod: LFO = LFO(self.voice)
+        #self.mod_on: bool = True
         
         # the gain isn't in dB, it's instead just a modifier.
         self.gain: float = 1
@@ -205,14 +209,10 @@ class Amp:
 
 class Envelope:
     def __init__(self, voice: Voice) -> None:
-        # TODO: make the envelopes a bit better. The env doesn't need to
-        # be "owned" by every instance. it only needs to be created once, because
-        # it all is dependent on the notes instead.
-
         # the envelope shouldn't be owned by the Note, because
         # it is connected to a voice instead
         self.voice: Voice = voice
-        self.on: bool = False
+        self.on: bool = True
 
         self.ad_state: bool = False
         self.r_state: bool = False
@@ -325,11 +325,11 @@ with wave.open(file, 'rb') as wf:
 
     #stream.write(raw_wave)
 
-    #converted_wave = np.frombuffer(raw_wave, dtype=np.int16)
+    converted_wave = np.frombuffer(raw_wave, dtype=np.int16)
 
     #stream.write(speedx(converted_wave, 2).tobytes())
 
-    #wav_chunks = chunkify(converted_wave * 0.4)
+    wav_chunks = chunkify(converted_wave * 0.4)
     #new_note()
     step = 0
 
@@ -391,7 +391,6 @@ with wave.open(file, 'rb') as wf:
 
     #while True:
     empty_chunk = np.zeros(CHUNK)
-    voice_count: int = 2
 
     voice: Voice = Voice()
     voice.note = notes[0]
@@ -399,22 +398,193 @@ with wave.open(file, 'rb') as wf:
     while notes:
         chunks = []
         print(voice.get_chunk())
+        current_time = time.time_ns()
         chunks.append(voice.get_chunk().astype(np.int16))
+        #osc = osc.astype(np.int16)
+        #plt.plot(osc)
+        #plt.show()
+        #print(note[4])
+        #chunks.append(osc)
+        #print('play')
 
-        # the worst voice handler ever!
-        for note in notes:
-            if note.start < current_time:
-                # the note is active. therefore it needs a voice
-                voice.note = note
- 
-                voice.note.chunk_step += 1 # the chunk param
+        #plt.plot(osc)
+        #plt.show()
+
+        voice.note.chunk_step += 1 # the chunk param
+        print(current_time - time.time_ns())
+
+        for note in notes: 
+            current_time = time.time_ns()
+
+            # get which sample
+            #te = current_time - note[2]
+            #point = te * (1/44100)
+            #chunk_nr = int((point % CHUNK) / CHUNK)
+            #print(point)
+            #elapsed_note_time = current_time - note[2] # start_time
+            #samples_played = elapsed_note_time / (sample_duration_ns * CHUNK)
+            #chunk_nr = int(samples_played % CHUNK)
+
+            #chunk_nr = int((current_time - note[2]) / sample_duration_ns) # start time
+            #print(chunk_nr)
+            #chunk_nr = 10
+
+            # next thing to add:
+            # envelopes for the chunks
+
+            # these first 2 checks see if the note is playing or not
+            '''
+            if note.end > time.time_ns():#current_time:
+                if note.start < time.time_ns():
+                    if note.source == 's': # noise source is sample so step the chunk param
+                        # using this implementation the list storing all note data wont be readonly
+                        # but python still probably opens it for a write still. well it is probably
+                        # quicker to use some more ram than semi-complex math on at least 10^12 numbers
+
+                        # the samples are now pitched
+                        if note.chunk_step < len(wav_chunks): # what chunk
+                            factor = get_factor(466.164, note.freq) # see the sun is in b flat
+                            # speeds induvidual chunks. might not be grate, but it works for now
+                            chunks.append(speedx(
+                                wav_chunks[note.chunk_step],
+                                factor
+                            ))
+
+                            note.chunk_step += 1 # the chunk param
+                            print(note)
+
+                    if note.source == 'o': # noise source is osc
+                        #osc = 1 * np.sin(2.0 * np.pi / (44100 / 440) * empty_chunk)
+
+                        start = note.chunk_step * CHUNK
+
+                        #indexed_chunk = np.arange(note[4] + 0, note[4] + CHUNK)
+                        indexed_chunk = np.arange(start + 0, start + CHUNK)
+                        # osc -> oscillation
+                        osc = 1000 * np.sin(2.0 * np.pi / (44100 / 440) * indexed_chunk)
+
+                        # this makes a simple sloped env for every chunk.
+                        #osc = osc * qenv
+
+                        # next thing to do is to take a long array 
+                        # for to split it up in chunks now.
+
+                        # the envelope needs to be structured in a list
+                        # containing the envelope specific to the chunks
+
+                        # the release gets cut off beacuse of a flawed polyphony/note system
+                        # every note needs to be an object of a class instead of a list that's nested
+                        if note.chunk_step < len(lenvs) - 1:
+                            lenv_stage = True
+                            renv_stage = False
+                        elif note.chunk_step > len(lenvs) - len(renvs) - 1:
+                            lenv_stage = False
+                            renv_stage = True 
+                        else:
+                            #print('off early')
+                            lenv_stage = False
+                            renv_stage = False
+
+                        if lenv_stage:
+                            # the ad env is on!
+                            print('ad')
+
+                            # well time to take a brake for today.
+                            # for to accomplish that i think i need a note list/dict, where all of the notes
+                            # are stored, even after they have been triggered.
+                            osc = osc * lenvs[note.chunk_step]
+
+                            # note[4] doesn't get reset, but the renv needs to start at 0
+                            last_note_step = note.chunk_step
+                        elif renv_stage:
+                            print('release yourself')
+                            osc = osc * renvs[note.chunk_step - last_note_step]
+                        else:
+                            # none of the stages are on, therfore the sound should be terminated
+                            osc = osc * 0
+                            note.on = False
+                            #print('note off')
+
+                            # the envelope is done, but the note is off
+                            # ad stage
+                            # sound is off
+                            # turns the audio off
+                            note[5] = False
+                            osc = osc * 0
+                        elif note[1] > time.time_ns():
+                            # the trigger is on
+                            # the envelope is good as usual.
+                            # TODO: add:
+                            # the problem with this implementation is that sustain doesn't work.
+                            # neither does relesase because the notes get retriggered instantly.
+                            # well time to take a brake for today.
+                            # for to accomplish that i think i need a note list/dict, where all of the notes
+                            # are stored, even after they have been triggered.
+                            osc = osc * lenvs[note[4]]
+
+                            # note[4] doesn't get reset, but the renv needs to start at 0
+                            last_note_step = note[4]
+
+                        else:
+                            # rel env time
+                            print('rastage')
+                            osc = osc * renvs[note[4] - last_note_step]
+                        '''
+
+            '''
+                        osc = osc.astype(np.int16)
+                        #plt.plot(osc)
+                        #plt.show()
+                        #print(note[4])
+                        chunks.append(osc)
+                        #print('play')
+
+                        #plt.plot(osc)
+                        #plt.show()
+
+                        note.chunk_step += 1 # the chunk param
+
+            else:
+                # the note must have finished then
+                notes.remove(note)
+
+
+            #chunks.append(wav_chunks[step])
+
+            '''
 
         #print(chunks)
         play(*chunks)
 
-        #print('all time elapsed ' + str(timer - time.time_ns()))
+        #if sample_step >= len(chunks) - 1:
+        #    sample_step = 0
+        #else: 
+        #    sample_step += 1
+        #step += 1
+
+    print('all time elapsed ' + str(timer - time.time_ns()))
     
+    '''
+    for i in range(8):
+        new_note(freq=random.randint(-12, 12))
+
+        while len(notes) > 0:
+            play_notes()
+    '''
+
+    #for chunk in chunks:
+    #    stream.write(chunk.astype(np.int16).tobytes())
+
+    #plt.plot(chunks)
+    #plt.show()
+        #stream.write(chunk.tobytes())
+    #print(len(chunks[0]))
+    #stream.write(chunks[3].tobytes())
+
+
+    # write last
+    #stream.write(converted_wave.tobytes())
+
     stream.close()
 
     p.terminate()
-
