@@ -49,28 +49,6 @@ def chunkify(sound_array):
 # time to add some envelopes, working with volume for to start with
 # seperate envelopes for every part
 # doesnt work if time in ns because giant operations
-envelopes = [
-        np.linspace(0, 2, 44100),
-        np.linspace(2, 1, 44100),
-        np.full((44100,), 1),
-        np.linspace(1, 0, 44100),
-]
-
-envelope = np.array(())
-for e in envelopes:
-    envelope = np.append(envelope, e)
-
-envelope_chunks = chunkify(envelope)
-#print(len(envelope))
-#print('i')
-#for c in envelope_chunks:
-    #print(len(c))
-
-fade_env = np.linspace(0, 2, 44100)
-fade_chunks = chunkify(fade_env)
-
-#plt.plot(envelope)
-#plt.show()
 
 def get_factor(bass_freq, semitones):
     freq = (2 ** (semitones / 12)) * 440
@@ -85,13 +63,6 @@ def speedx(sound_array, factor):
     # makes the sped array fit into the other one
     indices = indices[indices < len(sound_array)].astype(int)
     return sound_array[indices.astype(int)]
-
-#def new_note(freq=440):
-#    start = time.time_ns()
-#    end = start + 1000000000
-#    source = 's' # from sampler
-#    chunk = 0
-#    notes.append([start, end, freq, source, chunk])
 
 class Note:
     def __init__(self, start: int, end: int, source: str, freq: float = 440.0) -> None:
@@ -163,7 +134,7 @@ class LFO:
     def __init__(self, voice: Voice) -> None:
         # a basic lfo class to modulate other signals.
         # do not use as a standalone oscillator
-        self.on: bool = True
+        self.on: bool = False
         self.tau: float = 2.0 * np.pi
         self.rate: float = 2.0
         self.depth: int = 1
@@ -310,14 +281,9 @@ def play(*chunks):
        master_chunk = np.append(master_chunk, chunk) 
     stream.write(master_chunk.astype(np.int16).tobytes())
 
+# this block is for the old reader.
+'''
 with wave.open(file, 'rb') as wf:
-    p = pyaudio.PyAudio()
-
-    stream = p.open(format=pyaudio.paInt16,
-                    channels=1,
-                    rate=44100,
-                    output=True)
-
     sample_step = 0
 
     # reads all waves in binary
@@ -333,88 +299,73 @@ with wave.open(file, 'rb') as wf:
     #new_note()
     step = 0
 
-    # about 2 ms from here
-    current_time = time.time_ns()
-    # TODO: Make the timings relative, because otherwise the load times of the notes
-    # do so that they don't get played, because the loading is 1.1+ seconds, when a note
-    # can be less than 1 sec.
-    for i in range(16):
-        # add notes
-        #start = current_time + (i * 1000000000 * 2)
-        #new_note(start, start + 1000000000 * 2, 's')
-
-        # uncomment under
-        start = current_time + (i * whole_note_duration)
-        #new_note(start, start + whole_note_duration, 's')
-        #new_note(start, start + whole_note_duration, 'o')
-        notes.append(Note(start, start + 10 * whole_note_duration, 'o'))
-
-    melody_start = time.time_ns()
-    #new_note(melody_start, melody_start + whole_note_duration, 's'),
-    #new_note(melody_start + (whole_note_duration * 2), melody_start + (whole_note_duration * 3), 's'),
-    #new_note(melody_start + (whole_note_duration * 4), melody_start + (whole_note_duration * 5), 's'),
-    #new_note(melody_start + (whole_note_duration * 6), melody_start + (whole_note_duration * 7), 's'),
-
-    timer = current_time
-    qenv = np.linspace(0, 2, CHUNK)
-
     # this system works well if we know how long our notes will be. that isn't always the case.
     # then we need to have a system that just multiplies it iwth an empty chunk if the env is too big.
-    lenvs = []
-    renvs = []
-    lenv = np.linspace(0, 2, 25 * CHUNK)
-    aenv = np.linspace(0, 16, 10 * CHUNK)
-    denv = np.linspace(16, 8, 10 * CHUNK)
+'''
 
-    renv = np.linspace(8, 0, 50 * CHUNK)
+p: pyaudio.PyAudio = pyaudio.PyAudio()
 
-    adenv = np.append(aenv, denv)
-    for i in range(20):
-        #lenvs.append(lenv[i * CHUNK : i * CHUNK + CHUNK]) 
-        lenvs.append(adenv[i * CHUNK : i * CHUNK + CHUNK]) 
-    for i in range(50):
-        renvs.append(renv[i * CHUNK : i * CHUNK + CHUNK]) 
-    # to 
-    # to here
-
-    '''
-    flenv = np.array(())
-    for e in lenvs:
-        flenv = np.append(flenv, e)
-    plt.plot(flenv)
-    plt.show()
-
-    print(len(notes))
-    print(notes)
-    '''
+stream = p.open(
+        format=pyaudio.paInt16,
+        channels=1,
+        rate=44100,
+        output=True
+)
 
 
-    #while True:
-    empty_chunk = np.zeros(CHUNK)
-    voice_count: int = 2
+current_time = time.time_ns()
+# TODO: Make the timings relative, because otherwise the load times of the notes
+# do so that they don't get played, because the loading is 1.1+ seconds, when a note
+# can be less than 1 sec.
+# this does so that notes get triggered before they get played, sometimes a few seconds
+# and then they don't get played.
 
-    voice: Voice = Voice()
-    voice.note = notes[0]
+for i in range(16):
+    # add notes
+    start = current_time + (i * whole_note_duration)
+    notes.append(Note(start, start + 10 * whole_note_duration, 'o'))
 
-    while notes:
-        chunks = []
-        print(voice.get_chunk())
-        chunks.append(voice.get_chunk().astype(np.int16))
+
+# left off after fixing some small git problems...
+# it all works now.
+
+
+empty_chunk = np.zeros(CHUNK)
+voice_count: int = 2
+
+voices = []
+for i in range(voice_count):
+    voices.append(Voice())
+    voices[i].note = notes[0]
+
+#voice: Voice = Voice()
+#voice.note = notes[0]
+
+while notes:
+    current_time = time.time_ns()
+    chunks = []
+    for voice in voices:
+        chunks.append(voice.get_chunk())
 
         # the worst voice handler ever!
         for note in notes:
+            # TODO: must also check if note is done
             if note.start < current_time:
                 # the note is active. therefore it needs a voice
                 voice.note = note
- 
+
                 voice.note.chunk_step += 1 # the chunk param
 
-        #print(chunks)
-        play(*chunks)
+                # TODO XXX: this shouldn't work. do so that the list copies itself 
+                # instead of removing from the one that is iterating
+                #notes.remove(note)
 
-        #print('all time elapsed ' + str(timer - time.time_ns()))
-    
-    stream.close()
+    #print(chunks)
+    play(*chunks)
 
-    p.terminate()
+    #print('all time elapsed ' + str(timer - time.time_ns()))
+
+stream.close()
+
+p.terminate()
 
