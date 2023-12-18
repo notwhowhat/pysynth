@@ -73,12 +73,10 @@ class Note:
         self.source: str = source
         self.freq: float = freq
         self.on: bool = True
-        self.triggered: bool = False
-        self.started: bool = False
+        self.triggered = False
 
         # which chunk it is on.
         self.chunk_step: int = 0
-        self.freq = random.randint(220, 880)
 
 class Voice:
     def __init__(self) -> None:
@@ -87,18 +85,13 @@ class Voice:
         self.amp: Amp = Amp(self)
         self.note: Note
 
-    def get_chunk(self, current_time: int) -> np.ndarray:
-        #current_time: int = time.time_ns()
+    def get_chunk(self) -> np.ndarray:
+        current_time: int = time.time_ns()
 
         # now everything stops if the note does so too.
         # these features should be independent.
         if self.note.end > current_time:
             if self.note.start < current_time:
-                if self.note.triggered:
-                    # the note hasn't been triggered before
-                    # then it should be marked.
-                    self.note.started = True
-
                 # the note is being held on.
                 print('on ' + str(self))
                 self.note.triggered = True
@@ -117,7 +110,7 @@ class Voice:
             start = self.note.chunk_step * CHUNK
 
             indexed_chunk = np.arange(start + 0, start + CHUNK)
-            chunk = 1000 * np.sin(2.0 * np.pi / (44100 / self.note.freq) * indexed_chunk)
+            chunk = 1000 * np.sin(2.0 * np.pi / (44100 / 440) * indexed_chunk)
 
             # this makes a simple sloped env for every chunk.
             # next thing to do is to take a long array 
@@ -132,10 +125,7 @@ class Voice:
             
             self.note.chunk_step += 1
             return chunk
-        #self.note.chunk_step += 1
-        print('zeroead')
-        # so basically, the note isn't "on"
-        # check why that is.
+        self.note.chunk_step += 1
         return np.zeros((CHUNK))
 
 class LFO:
@@ -170,12 +160,10 @@ class Amp:
                 chunk *= self.env.get_env(self.voice.note)
         else:
             # turns the note off when the trigger is removed.
-            # shouldn't do this.
             if not self.voice.note.triggered:
                 #print('stop time')
                 chunk *= 0
-                if self.voice.note.started:
-                    self.voice.note.on = False
+                self.voice.note.on = False
 
         if self.mod.on:
             if self.mod != None:
@@ -193,7 +181,7 @@ class Envelope:
         # the envelope shouldn't be owned by the Note, because
         # it is connected to a voice instead
         self.voice: Voice = voice
-        self.on: bool = True
+        self.on: bool = False
 
         self.ad_state: bool = False
         self.r_state: bool = False
@@ -286,10 +274,9 @@ def play_notes():
             notes.remove(note)
 
 def play(*chunks):
-    master_chunk = np.zeros((CHUNK))
+    master_chunk = np.array(())
     for chunk in chunks:
-       if len(chunk) == CHUNK:
-        master_chunk += chunk
+       master_chunk = np.append(master_chunk, chunk) 
     stream.write(master_chunk.astype(np.int16).tobytes())
 
 # this block is for the old reader.
@@ -341,27 +328,10 @@ voice_count: int = 2
 voices = []
 for i in range(voice_count):
     voices.append(Voice())
-    voices[i].note = notes[0]
+    voices[i].note = notes[i]
 
 #voice: Voice = Voice()
 #voice.note = notes[0]
-
-# there is something with the trigger, that does so that the voices can't play multiple notes
-# simultaniously aswell as only being able to play notes before they have been zero, which
-# leads to no audio output.
-
-# investigate further on the trigger.
-voices[0].note = notes[0]
-voices[1].note = notes[1]
-
-# this is weird and crazy. i don't think that it is caused by the trigger, because it still exists
-# when the amp is disabled, which does so that it has nothing to do with the trigger.
-
-
-# TODO: just a sligt problem. the notes are always on from the beginning. should
-# be simple to fix and related to the note.started variable which is recently added.
-
-
 
 
 while notes:
@@ -370,13 +340,12 @@ while notes:
     #for voice in voices:
     #    chunks.append(voice.get_chunk())
     #chunks.append(voices[0].get_chunk())
+    #print(voices[0].get_chunk())# == voices[1].get_chunk())
     #voices[0].note.chunk_step += 1 # the chunk param
     for v in voices:
-        chunks.append(v.get_chunk(current_time))
-    # sometimes a cycle only takes 0 ns, which is impossible.
-    # my guess is that it doesn't get run. checked it, it's the only possible
-    # way of it being 0 ns.
-    # basically, it doesn't get played, and the chunks don't get generated.
+        chunks.append(v.get_chunk())
+        #v.note.chunk_step += 1
+    print(time.time_ns() - current_time)
 
     for e in []:
 
