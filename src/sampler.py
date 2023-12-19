@@ -72,7 +72,7 @@ class Note:
         # TODO: make the source into an oscillator obj.
         self.source: str = source
         self.freq: float = freq
-        self.on: bool = True
+        self.on: bool = False
         self.triggered: bool = False
         self.started: bool = False
 
@@ -94,6 +94,9 @@ class Voice:
         # these features should be independent.
         if self.note.end > current_time:
             if self.note.start < current_time:
+                # the note should be on if it has been started or is on.
+                self.note.on = True
+
                 if self.note.triggered:
                     # the note hasn't been triggered before
                     # then it should be marked.
@@ -193,7 +196,7 @@ class Envelope:
         # the envelope shouldn't be owned by the Note, because
         # it is connected to a voice instead
         self.voice: Voice = voice
-        self.on: bool = True
+        self.on: bool = False
 
         self.ad_state: bool = False
         self.r_state: bool = False
@@ -244,6 +247,7 @@ class Envelope:
             else:
                 # release is on
                 env = self.get_r(note.chunk_step)
+                print('release yourself')
         else:
             # note is compleetly off, but it still exists
             env = self.get_end()
@@ -336,7 +340,7 @@ for i in range(16):
     notes.append(Note(start, start + 10 * whole_note_duration, 'o'))
 
 empty_chunk = np.zeros(CHUNK)
-voice_count: int = 2
+voice_count: int = 3
 
 voices = []
 for i in range(voice_count):
@@ -353,6 +357,7 @@ for i in range(voice_count):
 # investigate further on the trigger.
 voices[0].note = notes[0]
 voices[1].note = notes[1]
+voices[2].note = notes[2]
 
 # this is weird and crazy. i don't think that it is caused by the trigger, because it still exists
 # when the amp is disabled, which does so that it has nothing to do with the trigger.
