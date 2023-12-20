@@ -85,7 +85,7 @@ class Voice:
         # the voice's purpoouse is to be able to use instances for the notes.
         # handles and playes the note that is sent to it.
         self.amp: Amp = Amp(self)
-        self.note: Note
+        self.note: Note = None
 
     def get_chunk(self, current_time: int) -> np.ndarray:
         #current_time: int = time.time_ns()
@@ -103,10 +103,10 @@ class Voice:
                     self.note.started = True
 
                 # the note is being held on.
-                print('on ' + str(self))
+                #print('on ' + str(self))
                 self.note.triggered = True
         else:
-            print('off ' + str(self))
+            #print('off ' + str(self))
             self.note.triggered = False
         #return np.zeros((CHUNK))
 
@@ -292,8 +292,8 @@ def play_notes():
 def play(*chunks):
     master_chunk = np.zeros((CHUNK))
     for chunk in chunks:
-       if len(chunk) == CHUNK:
-        master_chunk += chunk
+        if len(chunk) == CHUNK:
+            master_chunk += chunk
     stream.write(master_chunk.astype(np.int16).tobytes())
 
 # this block is for the old reader.
@@ -336,8 +336,9 @@ current_time = time.time_ns()
 
 for i in range(16):
     # add notes
-    start = current_time + (10 * i * whole_note_duration)
-    notes.append(Note(start, start + 10 * whole_note_duration, 'o'))
+    for j in range(2):
+        start = current_time + (10 * i * whole_note_duration)
+        notes.append(Note(start, start + 10 * whole_note_duration, 'o'))
 
 empty_chunk = np.zeros(CHUNK)
 voice_count: int = 3
@@ -345,7 +346,7 @@ voice_count: int = 3
 voices = []
 for i in range(voice_count):
     voices.append(Voice())
-    voices[i].note = notes[0]
+#    voices[i].note = notes[0]
 
 #voice: Voice = Voice()
 #voice.note = notes[0]
@@ -355,9 +356,9 @@ for i in range(voice_count):
 # leads to no audio output.
 
 # investigate further on the trigger.
-voices[0].note = notes[0]
-voices[1].note = notes[1]
-voices[2].note = notes[2]
+#voices[0].note = notes[0]
+#voices[1].note = notes[1]
+#voices[2].note = notes[2]
 
 # this is weird and crazy. i don't think that it is caused by the trigger, because it still exists
 # when the amp is disabled, which does so that it has nothing to do with the trigger.
@@ -376,8 +377,29 @@ while notes:
     #    chunks.append(voice.get_chunk())
     #chunks.append(voices[0].get_chunk())
     #voices[0].note.chunk_step += 1 # the chunk param
+    started_notes = []
+
+    for note in notes:
+        if current_time > note.start:
+            # send to voice.
+            started_notes.append(note)
+
+    for note in started_notes:
+        notes.remove(note)
+
+
+    for voice in voices:
+        if len(started_notes):
+            # it is not empty!
+
+            # now it only works with free voices
+            if voice.note == None:
+                voice.note = started_notes[0]
+                started_notes.pop(0)
+
     for v in voices:
-        chunks.append(v.get_chunk(current_time))
+        if v.note != None:
+            chunks.append(v.get_chunk(current_time))
     # sometimes a cycle only takes 0 ns, which is impossible.
     # my guess is that it doesn't get run. checked it, it's the only possible
     # way of it being 0 ns.
