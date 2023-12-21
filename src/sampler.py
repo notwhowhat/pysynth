@@ -75,6 +75,7 @@ class Note:
         self.on: bool = False
         self.triggered: bool = False
         self.started: bool = False
+        self.done: bool = False
 
         # which chunk it is on.
         self.chunk_step: int = 0
@@ -134,6 +135,8 @@ class Voice:
             self.amp.amplify(chunk)
             
             self.note.chunk_step += 1
+            if self.note.done:
+                self.note = None
             return chunk
         #self.note.chunk_step += 1
         print('zeroead')
@@ -179,6 +182,10 @@ class Amp:
                 chunk *= 0
                 if self.voice.note.started:
                     self.voice.note.on = False
+                    # XXX: this is unsafe. what if something further in the chain needs to 
+                    # use the frequency after this stage. make a function that checks for the 
+                    # variable that will be made later, and set to delete the note soon.
+                    self.voice.note.done = True
 
         if self.mod.on:
             if self.mod != None:
@@ -291,6 +298,7 @@ def play_notes():
 
 def play(*chunks):
     master_chunk = np.zeros((CHUNK))
+    print(len(chunks))
     for chunk in chunks:
         if len(chunk) == CHUNK:
             master_chunk += chunk
@@ -334,14 +342,14 @@ current_time = time.time_ns()
 # this does so that notes get triggered before they get played, sometimes a few seconds
 # and then they don't get played.
 
-for i in range(16):
+for i in range(41):
     # add notes
     for j in range(2):
         start = current_time + (10 * i * whole_note_duration)
         notes.append(Note(start, start + 10 * whole_note_duration, 'o'))
 
 empty_chunk = np.zeros(CHUNK)
-voice_count: int = 3
+voice_count: int = 2
 
 voices = []
 for i in range(voice_count):
@@ -370,6 +378,7 @@ for i in range(voice_count):
 
 
 
+cycle_counter: int = 0
 while notes:
     current_time = time.time_ns()
     chunks = []
@@ -384,18 +393,21 @@ while notes:
             # send to voice.
             started_notes.append(note)
 
-    for note in started_notes:
-        notes.remove(note)
+    #for note in started_notes:
+        #notes.remove(note)
 
 
     for voice in voices:
-        if len(started_notes):
+        if len(started_notes) > 0:
             # it is not empty!
 
             # now it only works with free voices
             if voice.note == None:
+
+                print('chordtime')
                 voice.note = started_notes[0]
                 started_notes.pop(0)
+                notes.remove(voice.note)
 
     for v in voices:
         if v.note != None:
@@ -431,6 +443,7 @@ while notes:
     play(*chunks)
 
     #print('all time elapsed ' + str(timer - time.time_ns()))
+    cycle_counter += 1
 
 stream.close()
 
