@@ -4,11 +4,13 @@ import sys
 import pyaudio
 
 import numpy as np
-from scipy.io.wavfile import read as sciread
 import matplotlib.pyplot as plt
+from scipy.signal import square
+from scipy.signal import butter 
 
 import time
 import random
+#import keyboard
 
 CHUNK = 1024
 
@@ -79,13 +81,14 @@ class Note:
 
         # which chunk it is on.
         self.chunk_step: int = 0
-        self.freq = random.randint(220, 880)
+        self.freq = random.randint(440, 440)
 
 class Voice:
     def __init__(self) -> None:
         # the voice's purpoouse is to be able to use instances for the notes.
         # handles and playes the note that is sent to it.
         self.amp: Amp = Amp(self)
+        self.filter = Filter(self)
         self.note: Note = None
 
     def get_chunk(self, current_time: int) -> np.ndarray:
@@ -121,7 +124,8 @@ class Voice:
             start = self.note.chunk_step * CHUNK
 
             indexed_chunk = np.arange(start + 0, start + CHUNK)
-            chunk = 1000 * np.sin(2.0 * np.pi / (44100 / self.note.freq) * indexed_chunk)
+            #chunk = 1000 * np.sin(2.0 * np.pi / (44100 / self.note.freq) * indexed_chunk)
+            chunk = 1000 * square(2.0 * np.pi / (44100 / self.note.freq) * indexed_chunk)
 
             # this makes a simple sloped env for every chunk.
             # next thing to do is to take a long array 
@@ -132,7 +136,11 @@ class Voice:
 
             # the release gets cut off beacuse of a flawed polyphony/note system
             # every note needs to be an object of a class instead of a list that's nested
+            self.filter.get_afiltered(chunk)
             self.amp.amplify(chunk)
+
+            #plt.plot(chunk)
+            #plt.show()
             
             self.note.chunk_step += 1
             if self.note.done:
@@ -194,6 +202,66 @@ class Amp:
 
         chunk *= self.gain
 
+class Filter:
+    def __init__(self, voice: Voice) -> None:
+        self.type: str = 'low'
+        self.cutoff_freq: float = random.randint(0, 20000)
+        self.cutoff_freq = 20
+
+        self.buffer0: int = 0
+        self.buffer1: int = 0
+
+        self.ctoff: float = random.randint(100, 200) #300.0
+
+        self.sample_buffer: int = 0
+
+    def get_filtered(self, chunk: np.ndarray):
+        # the cutoff freq needs to be made to a dataindex for the fft
+        cutoff_index = int(self.cutoff_freq * chunk.size / 44100)
+
+        fft = np.fft.fft(chunk)
+
+        for i in range(cutoff_index + 1, len(fft)):
+            # sets it to 0 when it is past the cutoff
+            fft[i] = 0
+
+        # the inverse of it for to convert it back
+        filtered = np.fft.ifft(fft)
+        chunk = np.real(filtered)
+
+    def get_mfiltered(self, chunk: np.ndarray) -> None:
+        nchunk: list = []
+        for i, e in enumerate(chunk):
+            self.buffer0 += self.cutoff_freq * (e - self.buffer0) 
+            self.buffer1 += self.cutoff_freq * (self.buffer0 - self.buffer1) 
+            nchunk.append(self.buffer0)
+        #chunk *= 1000
+        chunk = nchunk
+        print(chunk)
+
+    def get_afiltered(self, chunk: np.ndarray) -> None:
+        chunk += self.allpass(chunk)
+        #chunk *= -1
+        chunk *= 0.5
+
+
+    def allpass(self, chunk: np.ndarray) -> np.ndarray:
+        output: np.ndarray = np.zeros((CHUNK))
+
+        for i in range(len(chunk)):
+            # the coefficient is gotten per sample.
+            ctan: float = np.tan(np.pi * self.ctoff / 44100)
+            coefficient: float = (ctan - 1) / (ctan + 1)
+
+            output[i] = coefficient * chunk[i] + self.sample_buffer
+            self.sample_buffer = chunk[i] - coefficient * output[i]
+
+        return output
+
+
+       
+
+
 class Envelope:
     def __init__(self, voice: Voice) -> None:
         # TODO: make the envelopes a bit better. The env doesn't need to
@@ -203,7 +271,7 @@ class Envelope:
         # the envelope shouldn't be owned by the Note, because
         # it is connected to a voice instead
         self.voice: Voice = voice
-        self.on: bool = False
+        self.on: bool = True
 
         self.ad_state: bool = False
         self.r_state: bool = False
@@ -344,20 +412,17 @@ current_time = time.time_ns()
 
 for i in range(41):
     # add notes
-    for j in range(2):
-        start = current_time + (10 * i * whole_note_duration)
-        notes.append(Note(start, start + 10 * whole_note_duration, 'o'))
+    #for j in range(2):
+    start = current_time + (10 * i * whole_note_duration)
+    notes.append(Note(start, start + 10 * whole_note_duration, 'o'))
 
 empty_chunk = np.zeros(CHUNK)
-voice_count: int = 2
+voice_count: int = 6
 
 voices = []
 for i in range(voice_count):
     voices.append(Voice())
 #    voices[i].note = notes[0]
-
-#voice: Voice = Voice()
-#voice.note = notes[0]
 
 # there is something with the trigger, that does so that the voices can't play multiple notes
 # simultaniously aswell as only being able to play notes before they have been zero, which
@@ -375,13 +440,11 @@ for i in range(voice_count):
 # TODO: just a sligt problem. the notes are always on from the beginning. should
 # be simple to fix and related to the note.started variable which is recently added.
 
-
-def voice_sort(v):
+def voice_sort(v: Voice) -> int:
     if v.note == None:
         return 0
     else:
         return v.note.start
-
 
 cycle_counter: int = 0
 while notes:
@@ -412,6 +475,7 @@ while notes:
                 started_notes.pop(0)
                 notes.remove(voice.note)
             else:
+                # a wacky voice stealing procedure. be carefull at touch!
                 if len(s_voices) > 0:
                     s_voices[0].note = started_notes[0]
                     started_notes.pop(0)
