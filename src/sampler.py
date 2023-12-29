@@ -88,8 +88,52 @@ class Voice:
         # the voice's purpoouse is to be able to use instances for the notes.
         # handles and playes the note that is sent to it.
         self.amp: Amp = Amp(self)
-        self.filter = Filter(self)
+        self.filter: Filter = Filter(self)
         self.note: Note = None
+
+        # time for major strutural revamp out of nowwhere!!!
+        # instead of passing a whole chunk through the whole signal chain it will instead
+        # do everything sample-wise.
+
+    def get_signal(self, current_time: int) -> np.ndarray:
+        # now everything stops if the note does so too.
+        # these features should be independent.
+        if self.note.end > current_time:
+            if self.note.start < current_time:
+                # the note should be on if it has been started or is on.
+                self.note.on = True
+
+                if self.note.triggered:
+                    # the note hasn't been triggered before
+                    # then it should be marked.
+                    self.note.started = True
+
+                # the note is being held on.
+                #print('on ' + str(self))
+                self.note.triggered = True
+        else:
+            #print('off ' + str(self))
+            self.note.triggered = False
+        #return np.zeros((CHUNK))
+
+        if self.note.on:
+            start = self.note.chunk_step * CHUNK
+            empty_chunk = np.arange(start, start + CHUNK)
+            chunk = np.array(())
+
+            for e in empty_chunk:
+                # signal will be generated sample-wise
+                sample: float = np.sin(2.0 * np.pi / (44100 / self.note.freq) * e)
+                sample = self.amp.amplify(sample)
+                chunk = np.append(chunk, sample)
+
+            self.note.chunk_step += 1
+            if self.note.done:
+                self.note = None
+            return chunk
+        return np.zeros((CHUNK))
+
+
 
     def get_chunk(self, current_time: int) -> np.ndarray:
         #current_time: int = time.time_ns()
@@ -124,8 +168,8 @@ class Voice:
             start = self.note.chunk_step * CHUNK
 
             indexed_chunk = np.arange(start + 0, start + CHUNK)
-            #chunk = 1000 * np.sin(2.0 * np.pi / (44100 / self.note.freq) * indexed_chunk)
-            chunk = 1000 * square(2.0 * np.pi / (44100 / self.note.freq) * indexed_chunk)
+            chunk = 1000 * np.sin(2.0 * np.pi / (44100 / self.note.freq) * indexed_chunk)
+            #chunk = 1000 * square(2.0 * np.pi / (44100 / self.note.freq) * indexed_chunk)
 
             # this makes a simple sloped env for every chunk.
             # next thing to do is to take a long array 
@@ -136,7 +180,7 @@ class Voice:
 
             # the release gets cut off beacuse of a flawed polyphony/note system
             # every note needs to be an object of a class instead of a list that's nested
-            self.filter.get_afiltered(chunk)
+            #self.filter.get_afiltered(chunk)
             self.amp.amplify(chunk)
 
             #plt.plot(chunk)
@@ -175,19 +219,22 @@ class Amp:
         self.mod: LFO = LFO(self.voice)
         
         # the gain isn't in dB, it's instead just a modifier.
-        self.gain: float = 1
+        self.gain: float = 1000
 
-    def amplify(self, chunk: np.ndarray):
+    def amplify(self, sample: float) -> float:#chunk: np.ndarray):
+        # TODO XXX: the envelope must react to the note.started and note.on for to
+        # be able to turn off properly
+        '''
         if self.env.on:
             if self.env != None:
                 # use envelope first.
-                chunk *= self.env.get_env(self.voice.note)
+                sample *= self.env.get_env(self.voice.note)
         else:
             # turns the note off when the trigger is removed.
             # shouldn't do this.
             if not self.voice.note.triggered:
                 #print('stop time')
-                chunk *= 0
+                sample *= 0
                 if self.voice.note.started:
                     self.voice.note.on = False
                     # XXX: this is unsafe. what if something further in the chain needs to 
@@ -198,9 +245,12 @@ class Amp:
         if self.mod.on:
             if self.mod != None:
                 # use modulator after.
-                chunk *= self.mod.get_osc(self.voice.note)
+                sample *= self.mod.get_osc(self.voice.note)
+        '''
 
-        chunk *= self.gain
+        #chunk *= self.gain
+        sample *= self.gain
+        return sample 
 
 class Filter:
     def __init__(self, voice: Voice) -> None:
@@ -258,10 +308,6 @@ class Filter:
 
         return output
 
-
-       
-
-
 class Envelope:
     def __init__(self, voice: Voice) -> None:
         # TODO: make the envelopes a bit better. The env doesn't need to
@@ -271,15 +317,16 @@ class Envelope:
         # the envelope shouldn't be owned by the Note, because
         # it is connected to a voice instead
         self.voice: Voice = voice
-        self.on: bool = True
+        #self.on: bool = False
+        self.on: bool = False
 
         self.ad_state: bool = False
         self.r_state: bool = False
         
         # env is unfortunatelly hardcoded :(
-        self.ad_env: np.ndarray = np.linspace(0, 16, CHUNK * 100)
-        self.r_env: np.ndarray = np.linspace(16, 0, CHUNK * 100)
-        self.s_level: float = 8
+        self.ad_env: np.ndarray = np.linspace(0, 25, CHUNK * 50)
+        self.r_env: np.ndarray = np.linspace(25, 0, CHUNK * 50)
+        self.s_level: float = 25.0
         self.end: np.ndarray = np.zeros((CHUNK))
 
         self.ad_list: list = chunkify(self.ad_env)
@@ -290,6 +337,9 @@ class Envelope:
     def trigger(self) -> None:
         # the envelope as just started going
         # reset the envelope too.
+
+        # something isn't getting reset, which leads to the release stage not
+        # being entered, because it 
         self.ad_state = True
         self.r_state = False
         self.last_note_step = 0
@@ -366,7 +416,7 @@ def play_notes():
 
 def play(*chunks):
     master_chunk = np.zeros((CHUNK))
-    print(len(chunks))
+    #print(len(chunks))
     for chunk in chunks:
         if len(chunk) == CHUNK:
             master_chunk += chunk
@@ -410,7 +460,7 @@ current_time = time.time_ns()
 # this does so that notes get triggered before they get played, sometimes a few seconds
 # and then they don't get played.
 
-for i in range(41):
+for i in range(3):
     # add notes
     #for j in range(2):
     start = current_time + (10 * i * whole_note_duration)
@@ -484,7 +534,8 @@ while notes:
 
     for v in voices:
         if v.note != None:
-            chunks.append(v.get_chunk(current_time))
+            #chunks.append(v.get_chunk(current_time))
+            chunks.append(v.get_signal(current_time))
     # sometimes a cycle only takes 0 ns, which is impossible.
     # my guess is that it doesn't get run. checked it, it's the only possible
     # way of it being 0 ns.
