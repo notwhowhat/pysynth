@@ -81,6 +81,7 @@ class Note:
 
         # which chunk it is on.
         self.chunk_step: int = 0
+        self.sample_step: int = 0
         self.freq = random.randint(440, 440)
 
 class Voice:
@@ -94,6 +95,10 @@ class Voice:
         # time for major strutural revamp out of nowwhere!!!
         # instead of passing a whole chunk through the whole signal chain it will instead
         # do everything sample-wise.
+
+        # TODO: the problem comes when i get to the envelopes. they are based on chunks. i can change it,
+        # bu then i also need to change the chunk_step in the note, which can break the sampler, because it is
+        # based on it.
 
     def get_signal(self, current_time: int) -> np.ndarray:
         # now everything stops if the note does so too.
@@ -126,6 +131,9 @@ class Voice:
                 sample: float = np.sin(2.0 * np.pi / (44100 / self.note.freq) * e)
                 sample = self.amp.amplify(sample)
                 chunk = np.append(chunk, sample)
+
+                # the sample step must be incremented every sample
+                self.note.sample_step += 1
 
             self.note.chunk_step += 1
             if self.note.done:
@@ -212,6 +220,7 @@ class LFO:
                                               note.chunk_step * CHUNK + CHUNK)
         return self.depth * np.sin(self.tau / (44100 / self.rate) * indexed_chunk)
 
+
 class Amp:
     def __init__(self, voice: Voice):
         self.voice: Voice = voice
@@ -224,11 +233,11 @@ class Amp:
     def amplify(self, sample: float) -> float:#chunk: np.ndarray):
         # TODO XXX: the envelope must react to the note.started and note.on for to
         # be able to turn off properly
-        '''
         if self.env.on:
             if self.env != None:
                 # use envelope first.
-                sample *= self.env.get_env(self.voice.note)
+                sample *= self.env.senv(self.voice.note)
+        '''
         else:
             # turns the note off when the trigger is removed.
             # shouldn't do this.
@@ -318,7 +327,7 @@ class Envelope:
         # it is connected to a voice instead
         self.voice: Voice = voice
         #self.on: bool = False
-        self.on: bool = False
+        self.on: bool = True
 
         self.ad_state: bool = False
         self.r_state: bool = False
@@ -343,6 +352,43 @@ class Envelope:
         self.ad_state = True
         self.r_state = False
         self.last_note_step = 0
+
+    def senv(self, note: Note) -> np.ndarray:
+        # sample-wise instead of chunk based.
+        self.note = note
+
+        if self.note.sample_step == 0:
+            # this isn't really accurate. remake so that it only goes throuhg when it actually does waht is should.
+            self.trigger()
+
+        # the release gets cut off beacuse of a flawed polyphony/note system
+        # every note needs to be an object of a class instead of a list that's nested
+        # it has some charming but buggy vibrato sound to it, will maybe investigate
+        # in the future
+        if self.note.sample_step < len(self.ad_env) - 1:
+            # ad stage
+            env = self.get_ad(note.sample_step, sample=True)
+        elif self.note.triggered:
+            # s stage
+            # it only gets here when the note is on.
+            env = self.get_s(self.last_note_step, sample=True)
+        elif note.sample_step > len(self.ad_env) - self.last_note_step - 1:
+            # r stage
+            if note.sample_step >= len(self.ad_env) + len(self.r_env) - 2:
+                # note is compleetly off, but it still exists
+                env = self.get_end(sample=True)
+            else:
+                # release is on
+                env = self.get_r(note.sample_step, sample=True)
+                print('release yourself')
+                # TODO: release is choppy??? FIX!!
+        else:
+            # note is compleetly off, but it still exists
+            env = self.get_end(sample=True)
+
+        return env
+
+
 
 
     def get_env(self, note: Note) -> np.ndarray:
@@ -379,18 +425,26 @@ class Envelope:
 
         return env
 
-    def get_ad(self, chunk_step: int) -> np.ndarray:
-        self.last_note_step = chunk_step
-        return self.ad_list[chunk_step]
+    def get_ad(self, step: int, sample: bool=False) -> np.ndarray:
+        self.last_note_step = step
+        if sample:
+            return self.ad_env[step]
+        return self.ad_list[step]
 
-    def get_s(self, chunk_step: int) -> np.ndarray:
-        self.last_note_step = chunk_step
+    def get_s(self, step: int, sample: bool=False) -> np.ndarray:
+        self.last_note_step = step
+        if sample:
+            return self.s_level
         return np.full((CHUNK), self.s_level)
 
-    def get_r(self, chunk_step: int) -> np.ndarray:
-        return self.r_list[chunk_step - self.last_note_step]
+    def get_r(self, step: int, sample: bool=False) -> np.ndarray:
+        if sample:
+            return self.r_env[step - self.last_note_step]
+        return self.r_list[step - self.last_note_step]
 
-    def get_end(self) -> np.ndarray:
+    def get_end(self, sample: bool=False) -> np.ndarray:
+        if sample:
+            return 0
         return self.end
 
 

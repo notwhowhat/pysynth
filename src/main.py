@@ -1,222 +1,173 @@
-# just a small prototype/test.
+import wave
+import sys
 
 import pyaudio
+
 import numpy as np
-from scipy.signal import sawtooth as scitooth
-from scipy.signal import square
-import keyboard
 import matplotlib.pyplot as plt
+from scipy.signal import square
+from scipy.signal import butter 
+
 import time
 import random
-import wave
+
+from voice import Voice
+from note import Note
+
+#import keyboard
 
 CHUNK = 1024
-SAMPLE_WIDTH = 2
-CHANNELS = 1
-SAMPLE_RATE = 44100
 
-# open the stream
-p = pyaudio.PyAudio()
+# only try files in mono, at 44100hz
+file = '../see_the_sun.wav'
+sampler_sample = []
+sample_step = 0
+note_on = True
+play_list = []
+notes = []
+
+bass_freq = 466.16
+
+#sample_duration_ns = 44100 / 1000000000
+# at 44.1Khz one sample is 0.00002267573 seconds
+sample_duration_ns = 1000000000 / 44100
+
+bpm = 120
+whole_note_duration = int(60000000000 / 120)
+def play(*chunks):
+    master_chunk = np.zeros((CHUNK))
+    #print(len(chunks))
+    for chunk in chunks:
+        if len(chunk) == CHUNK:
+            master_chunk += chunk
+    stream.write(master_chunk.astype(np.int16).tobytes())
+
+# this block is for the old reader.
+'''
+with wave.open(file, 'rb') as wf:
+    sample_step = 0
+
+    # reads all waves in binary
+    raw_wave = wf.readframes(-1)
+
+    #stream.write(raw_wave)
+
+    #converted_wave = np.frombuffer(raw_wave, dtype=np.int16)
+
+    #stream.write(speedx(converted_wave, 2).tobytes())
+
+    #wav_chunks = chunkify(converted_wave * 0.4)
+    #new_note()
+    step = 0
+
+    # this system works well if we know how long our notes will be. that isn't always the case.
+    # then we need to have a system that just multiplies it iwth an empty chunk if the env is too big.
+'''
+
+p: pyaudio.PyAudio = pyaudio.PyAudio()
 
 stream = p.open(
-    format=pyaudio.paFloat32,
-    channels=CHANNELS,
-    rate=SAMPLE_RATE,
-    output=True,
-    frames_per_buffer=CHUNK,
+        format=pyaudio.paInt16,
+        channels=1,
+        rate=44100,
+        output=True
 )
 
-# supersaw test wooohoooo!
-# not any more...
+current_time = time.time_ns()
+# TODO: make the timings relative, because otherwise the load times of the notes
+# do so that they don't get played, because the loading is 1.1+ seconds, when a note
+# can be less than 1 sec.
+# this does so that notes get triggered before they get played, sometimes a few seconds
+# and then they don't get played.
 
-# adsr envelope time! lets fold this code :)
+for i in range(3):
+    # add notes
+    #for j in range(2):
+    start = current_time + (10 * i * whole_note_duration)
+    notes.append(Note(start, start + 10 * whole_note_duration, 'o'))
 
-# now ive kindof got modulating going, so i think the next step is a sequencer... :D
+empty_chunk = np.zeros(CHUNK)
+voice_count: int = 6
 
-# attack
-a_time = int(0.00 * SAMPLE_RATE)
-a_level = 2
-# decay
-d_time = int(0.0 * SAMPLE_RATE)
-# sustain
-s_time = int(0.001 * SAMPLE_RATE)
-s_level = 1
-# release
-r_time = int(0.0 * SAMPLE_RATE)
+voices = []
+for i in range(voice_count):
+    voices.append(Voice())
+#    voices[i].note = notes[0]
 
-# full envelope
-attack = np.linspace(0, a_level, a_time)
-decay = np.linspace(a_level, s_level, d_time)
-sustain = np.full((s_time, ), s_level)
-release = np.linspace(s_level, 0, r_time)
+# there is something with the trigger, that does so that the voices can't play multiple notes
+# simultaniously aswell as only being able to play notes before they have been zero, which
+# leads to no audio output.
 
-# similar envs are added while different ones are separated
-ad_env = np.append(attack, decay)
-step_ad_env = 0
+# investigate further on the trigger.
+#voices[0].note = notes[0]
+#voices[1].note = notes[1]
+#voices[2].note = notes[2]
 
-s_env = sustain
-step_s_env = 0
+# this is weird and crazy. i don't think that it is caused by the trigger, because it still exists
+# when the amp is disabled, which does so that it has nothing to do with the trigger.
 
-r_env = release
-step_r_env = 0
 
-start = 0
+# TODO: just a sligt problem. the notes are always on from the beginning. should
+# be simple to fix and related to the note.started variable which is recently added.
 
-envelope_step = 0
-note_on = False
-sound_on = False
-note_start = False
-
-note_trigger = False
-
-# might change the sequencing to velocity-based instead of note-on/off
-# now i have a weird system for long notes...
-
-sequence_velocities = [1, 1, 1, 1]
-sequence_frequencies = [440, 440, 440, 440]
-sequence_note_starts = [True, True, True, True]
-step_sequence = 0
-
-frequency = 1
-velocity = 0
-
-#if len(sequence_velocities) == len(sequence_frequencies):
-#    print('sequencer works...')
-
-clock = 0
-start_step = time.time_ns()
-
-# measure fixed to 4/4 now!
-# the bpm actually works now...
-bpm = 120
-note_resolution = 1
-bpm_mul = (bpm / 60) * note_resolution
-step_time = int(1000000000 / bpm_mul)
-print(step_time)
-
-bar_time = int(1000000000 / bpm_mul)
-bar_start_time = time.time_ns()
-sixteenth_note = int(1000000000 / (bpm_mul * 16))
-
-# time to use som ms instead of classical stuff!
-# ehh forget that lets start sampling!
-time_sequence_starts =  [0, sixteenth_note, 2 * sixteenth_note, 3 * sixteenth_note]
-time_sequence_durations = [(sixteenth_note / 3 * 4), (sixteenth_note / 3 * 4), (sixteenth_note / 3 * 4), (sixteenth_note / 3 * 4)]
-
-# loading a file for sampling!
-sample = []
-sample_start = 0
-step_sample = 0
-
-while True:
-    # simple keyboardish functionallity
-    # these checks must be done before the data is generated for to be able to 
-    # use a volume envelope
-
-    # time sequencing is kindof hard... yeah lets sample instead :D
-
-    # step sequencer! but thats oldschool
-    if start_step + step_time < time.time_ns():
-     
-        step_sequence += 1
-        start_step = time.time_ns()
-
-    if step_sequence >= len(sequence_velocities):
-        step_sequence = 0
-
-    if sequence_velocities[step_sequence] > 0:
-        note_trigger = True
-        frequency = sequence_frequencies[step_sequence]
-        velocity = sequence_velocities[step_sequence]
-        note_start = sequence_note_starts[step_sequence]
+def voice_sort(v: Voice) -> int:
+    if v.note == None:
+        return 0
     else:
-        note_trigger = False
-    
-    if note_trigger:
-        if note_start:
-            if start_step == time.time_ns():
-                step_ad_env = 0
-                step_s_env = 0
-                step_r_env = 0
-                s_env = sustain 
+        return v.note.start
 
-        note_on = True
-        sound_on = True
-    else:
-        note_on = False
+cycle_counter: int = 0
+while notes:
+    current_time = time.time_ns()
+    chunks = []
+    #for voice in voices:
+    #    chunks.append(voice.get_chunk())
+    #chunks.append(voices[0].get_chunk())
+    #voices[0].note.chunk_step += 1 # the chunk param
+    started_notes = []
 
-    empty_data = np.arange(start, start + CHUNK)
-    data = np.array([])
+    for note in notes:
+        if current_time > note.start:
+            # send to voice.
+            started_notes.append(note)
 
-    # just a simple sine-wave
-    #samples = 0.1 * scitooth(2.0 * np.pi / (SAMPLE_RATE / 440) * empty_data)
-    samples = velocity * 0.1 * np.sin(2.0 * np.pi / (SAMPLE_RATE / frequency) * empty_data)
-    '''
-    if step_sample < len(sample) - 1:
-        step_sample = 0
-    else:
-        step_sample += 1
-    samples = sample[step_sample]
-    #step_sample = 3
-    data = samples
-    #print(data)
-    '''
+    #for note in started_notes:
+        #notes.remove(note)
+    s_voices = sorted(voices, key=voice_sort)
 
-    for i, sample in enumerate(samples):
-        if step_ad_env < len(ad_env):
-            sample *= ad_env[step_ad_env]
-            step_ad_env += 1
-            data = np.append(data, sample)
-        elif step_s_env < len(s_env):
-            sample *= s_env[step_s_env]
-            step_s_env += 1
-            data = np.append(data, sample)
-            if note_on:
-                s_env = np.append(s_env, s_level)
-        elif step_r_env < len(r_env):
-            sample *= r_env[step_r_env]
-            step_r_env += 1
-            data = np.append(data, sample)
-        else:
-            sample *= 0
-            data = np.append(data, sample)
+    for voice in voices:
+        if len(started_notes) > 0:
+            # it is not empty!
 
-            sound_on = False
+            # now it only works with free voices
+            if voice.note == None:
+                voice.note = started_notes[0]
+                started_notes.pop(0)
+                notes.remove(voice.note)
+            else:
+                # a wacky voice stealing procedure. be carefull at touch!
+                if len(s_voices) > 0:
+                    s_voices[0].note = started_notes[0]
+                    started_notes.pop(0)
+                    notes.remove(s_voices[0].note)
+                    s_voices.pop(0)
 
-    start += CHUNK
-    if start == CHUNK * SAMPLE_RATE:
-        start = 0
+    for v in voices:
+        if v.note != None:
+            #chunks.append(v.get_chunk(current_time))
+            chunks.append(v.get_signal(current_time))
+    # sometimes a cycle only takes 0 ns, which is impossible.
+    # my guess is that it doesn't get run. checked it, it's the only possible
+    # way of it being 0 ns.
+    # basically, it doesn't get played, and the chunks don't get generated.
 
-    # do last!!!
-    stream.write(data.astype(np.float32).tobytes())
-    #stream.write(data)
-    clock += 1
+    #print(chunks)
+    play(*chunks)
 
+    #print('all time elapsed ' + str(timer - time.time_ns()))
+    cycle_counter += 1
 
 stream.close()
-print('stream closed')
 
-# the plotting is saved for if i might need it
-'''
-empty_data = np.arange(start, start + CHUNK)
-
-# just a simple sine-wave
-samples = 0.1 * square(2.0 * np.pi / (SAMPLE_RATE / 440) * empty_data)
-print(samples)
-data = np.array([])
-
-for i, sample in enumerate(samples):
-    if envelope_step < len(envelope):
-        sample *= envelope[envelope_step]
-        envelope_step += 1
-        data = np.append(data, sample)
-#data = samples
-
-plt.plot(samples)
-plt.plot(envelope)
-plt.plot(data)
-plt.show()
-'''
-
-
+p.terminate()
 
