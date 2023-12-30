@@ -29,11 +29,17 @@ class Envelope:
         # the first thing that has to be implemented is a simple sustain envelope.
         self.on: bool = True
         self.s_level: float = 1.0
+        self.type: str = 's'
 
     def output(self, note):
-        if note.on:
-            return self.s_level
-        return 0
+        if self.type == 's':
+            # the simplest s env possible
+            #if note.on:
+            if note.state != 'off':
+                return self.s_level
+            return 0
+        #elif self.type == 'ad':
+        #    pass
 
 
 class CEnvelope:

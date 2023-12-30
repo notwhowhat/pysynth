@@ -83,7 +83,7 @@ current_time = time.time_ns()
 # will be done now.
 
 empty_chunk = np.zeros(CHUNK)
-voice_count: int = 1
+voice_count: int = 3
 
 voices = []
 for i in range(voice_count):

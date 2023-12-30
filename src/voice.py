@@ -26,6 +26,7 @@ class Voice:
     def get_signal(self, current_time: int) -> np.ndarray:
         # now everything stops if the note does so too.
         # these features should be independent.
+        '''
         if self.note.end > current_time:
             if self.note.start < current_time:
                 # the note should be on if it has been started or is on.
@@ -43,6 +44,8 @@ class Voice:
             #print('off ' + str(self))
             self.note.triggered = False
         #return np.zeros((CHUNK))
+        '''
+        self.note.set_state(current_time)
 
         self.note.on = True
 

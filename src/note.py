@@ -1,4 +1,5 @@
 import random
+
 CHUNK: int = 1024
 
 class Note:
@@ -22,5 +23,50 @@ class Note:
         self.chunk_step: int = 0
         self.sample_step: int = 0
         self.freq = random.randint(330, 660)
+
+        # there will be four different states:
+        # off, no key is held
+        # on, when the key is held
+        # offtr, when the key is turned off, or triggered
+        # ontr, when the key is turned on, or triggered
+        self.state: str = 'off'
+
+    def set_state(self, time: int) -> None:
+        '''
+        # gets the state of the note. is used for envelopes...
+        if self.end > time:
+            if self.start < time:
+                # the note is being held, but is this the first time?
+                self.state = 'on'
+        else:
+            self.state = 'off'
+        '''
+
+
+
+
+        #'''
+        if self.end > time:
+            if self.start < time:
+                # the note is being held, but is this the first time?
+                if self.state != 'on' or self.state != 'ontr':
+                    # well never has been or before!
+                    # can not be triggering for multiple iterations.
+                    self.state = 'ontr'
+
+                else:
+                    # has been on for a trigger iteration
+                    self.state = 'on'
+        else:
+            # not being held, and it has finished!
+            if self.state == 'on':
+                # it was on last iterations so the first time it will be offtriggered
+                self.state = 'offtr'
+
+
+                #self.on = True
+                # instead of having booleans for the states, i will instead use strings.
+        #'''
+
 
 
