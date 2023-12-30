@@ -3,6 +3,7 @@ import fx
 import note
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 CHUNK: int = 1024
 
@@ -43,6 +44,8 @@ class Voice:
             self.note.triggered = False
         #return np.zeros((CHUNK))
 
+        self.note.on = True
+
         if self.note.on:
             start = self.note.chunk_step * CHUNK
             empty_chunk = np.arange(start, start + CHUNK)
@@ -58,72 +61,15 @@ class Voice:
                 self.note.sample_step += 1
 
             self.note.chunk_step += 1
-            if self.note.done:
-                self.note = None
-            return chunk
-        return np.zeros((CHUNK))
+            # there is some uneaven problem which occurs when note.on always is on, which results in
+            # the phases are off sync, which gives a buzzy and unpleasant sound. 
 
-
-
-    def get_chunk(self, current_time: int) -> np.ndarray:
-        #current_time: int = time.time_ns()
-
-        # now everything stops if the note does so too.
-        # these features should be independent.
-        if self.note.end > current_time:
-            if self.note.start < current_time:
-                # the note should be on if it has been started or is on.
-                self.note.on = True
-
-                if self.note.triggered:
-                    # the note hasn't been triggered before
-                    # then it should be marked.
-                    self.note.started = True
-
-                # the note is being held on.
-                #print('on ' + str(self))
-                self.note.triggered = True
-        else:
-            #print('off ' + str(self))
-            self.note.triggered = False
-        #return np.zeros((CHUNK))
-
-        if self.note.on:
-            # the envelope hasn't finnished, so the sound is on!
-
-            # this triggering system is flawed, and turns off the note instead of
-            # depending on the envelope.
-            # the note is on
-
-            start = self.note.chunk_step * CHUNK
-
-            indexed_chunk = np.arange(start + 0, start + CHUNK)
-            chunk = 1000 * np.sin(2.0 * np.pi / (44100 / self.note.freq) * indexed_chunk)
-            #chunk = 1000 * square(2.0 * np.pi / (44100 / self.note.freq) * indexed_chunk)
-
-            # this makes a simple sloped env for every chunk.
-            # next thing to do is to take a long array 
-            # for to split it up in chunks now.
-
-            # the envelope needs to be structured in a list
-            # containing the envelope specific to the chunks
-
-            # the release gets cut off beacuse of a flawed polyphony/note system
-            # every note needs to be an object of a class instead of a list that's nested
-            #self.filter.get_afiltered(chunk)
-            self.amp.amplify(chunk)
-
+            #if self.note.done:
+            #    self.note = None
             #plt.plot(chunk)
             #plt.show()
-            
-            self.note.chunk_step += 1
-            if self.note.done:
-                self.note = None
             return chunk
-        #self.note.chunk_step += 1
-        print('zeroead')
-        # so basically, the note isn't "on"
-        # check why that is.
         return np.zeros((CHUNK))
+
 
 

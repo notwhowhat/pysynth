@@ -21,6 +21,6 @@ class Note:
         # which chunk it is on.
         self.chunk_step: int = 0
         self.sample_step: int = 0
-        self.freq = random.randint(440, 440)
+        self.freq = random.randint(330, 660)
 
 

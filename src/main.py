@@ -80,18 +80,20 @@ current_time = time.time_ns()
 # this does so that notes get triggered before they get played, sometimes a few seconds
 # and then they don't get played.
 
+empty_chunk = np.zeros(CHUNK)
+voice_count: int = 1
+
+voices = []
+for i in range(voice_count):
+    voices.append(Voice())
+
 for i in range(3):
     # add notes
     #for j in range(2):
     start = current_time + (10 * i * whole_note_duration)
     notes.append(Note(start, start + 10 * whole_note_duration, 'o'))
 
-empty_chunk = np.zeros(CHUNK)
-voice_count: int = 6
 
-voices = []
-for i in range(voice_count):
-    voices.append(Voice())
 #    voices[i].note = notes[0]
 
 # there is something with the trigger, that does so that the voices can't play multiple notes

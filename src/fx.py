@@ -22,10 +22,13 @@ class Amp:
     def amplify(self, sample: float) -> float:#chunk: np.ndarray):
         # TODO XXX: the envelope must react to the note.started and note.on for to
         # be able to turn off properly
+        #'''
         if self.env.on:
             if self.env != None:
                 # use envelope first.
-                sample *= self.env.senv(self.voice.note)
+                #sample *= self.env.senv(self.voice.note)
+                sample *= self.env.output(self.voice.note)
+        #'''
         '''
         else:
             # turns the note off when the trigger is removed.

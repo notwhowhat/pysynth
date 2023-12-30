@@ -26,6 +26,19 @@ class LFO:
 
 class Envelope:
     def __init__(self, voice: Voice) -> None:
+        # the first thing that has to be implemented is a simple sustain envelope.
+        self.on: bool = True
+        self.s_level: float = 1.0
+
+    def output(self, note):
+        if note.on:
+            return self.s_level
+        return 0
+
+
+class CEnvelope:
+    # this envelope is more based on chunks than samplewise
+    def __init__(self, voice: Voice) -> None:
         # TODO: make the envelopes a bit better. The env doesn't need to
         # be "owned" by every instance. it only needs to be created once, because
         # it all is dependent on the notes instead.
@@ -59,44 +72,6 @@ class Envelope:
         self.ad_state = True
         self.r_state = False
         self.last_note_step = 0
-
-    def senv(self, note: Note) -> np.ndarray:
-        # sample-wise instead of chunk based.
-        self.note = note
-
-        if self.note.sample_step == 0:
-            # this isn't really accurate. remake so that it only goes throuhg when it actually does waht is should.
-            self.trigger()
-
-        # the release gets cut off beacuse of a flawed polyphony/note system
-        # every note needs to be an object of a class instead of a list that's nested
-        # it has some charming but buggy vibrato sound to it, will maybe investigate
-        # in the future
-        if self.note.sample_step < len(self.ad_env) - 1:
-            # ad stage
-            env = self.get_ad(note.sample_step, sample=True)
-        elif self.note.triggered:
-            # s stage
-            # it only gets here when the note is on.
-            env = self.get_s(self.last_note_step, sample=True)
-        elif note.sample_step > len(self.ad_env) - self.last_note_step - 1:
-            # r stage
-            if note.sample_step >= len(self.ad_env) + len(self.r_env) - 2:
-                # note is compleetly off, but it still exists
-                env = self.get_end(sample=True)
-            else:
-                # release is on
-                env = self.get_r(note.sample_step, sample=True)
-                print('release yourself')
-                # TODO: release is choppy??? FIX!!
-        else:
-            # note is compleetly off, but it still exists
-            env = self.get_end(sample=True)
-
-        return env
-
-
-
 
     def get_env(self, note: Note) -> np.ndarray:
         # just a basic update method
