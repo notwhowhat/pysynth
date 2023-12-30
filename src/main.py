@@ -125,7 +125,7 @@ def voice_sort(v: Voice) -> int:
 cycle_counter: int = 0
 start_time: int = time.time_ns()
 
-while notes:
+while True:
     current_time = time.time_ns()
     relative_time = current_time - start_time
     chunks = []

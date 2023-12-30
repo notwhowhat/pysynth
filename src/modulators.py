@@ -29,7 +29,8 @@ class Envelope:
         # the first thing that has to be implemented is a simple sustain envelope.
         self.on: bool = True
         self.s_level: float = 1.0
-        self.type: str = 's'
+        self.ad_env: np.ndarray = np.linspace(0, 20, 2 * 44100)
+        self.type: str = 'ad'
 
     def output(self, note):
         if self.type == 's':
@@ -38,8 +39,14 @@ class Envelope:
             if note.state != 'off':
                 return self.s_level
             return 0
-        #elif self.type == 'ad':
-        #    pass
+        elif self.type == 'ad':
+            if note.state == 'ontr':
+                note.sample_step = 0
+
+            if note.state != 'off':
+                if note.sample_step > len(self.ad_env) - 1:
+                    return 0
+                return self.ad_env[note.sample_step]
 
 
 class CEnvelope:

@@ -49,7 +49,7 @@ class Note:
         if self.end > time:
             if self.start < time:
                 # the note is being held, but is this the first time?
-                if self.state != 'on' or self.state != 'ontr':
+                if self.state != 'on' and self.state != 'ontr':
                     # well never has been or before!
                     # can not be triggering for multiple iterations.
                     self.state = 'ontr'
@@ -59,7 +59,7 @@ class Note:
                     self.state = 'on'
         else:
             # not being held, and it has finished!
-            if self.state == 'on':
+            if self.state == 'off':
                 # it was on last iterations so the first time it will be offtriggered
                 self.state = 'offtr'
 
