@@ -80,6 +80,8 @@ current_time = time.time_ns()
 # this does so that notes get triggered before they get played, sometimes a few seconds
 # and then they don't get played.
 
+# will be done now.
+
 empty_chunk = np.zeros(CHUNK)
 voice_count: int = 1
 
@@ -89,8 +91,10 @@ for i in range(voice_count):
 
 for i in range(3):
     # add notes
-    #for j in range(2):
-    start = current_time + (10 * i * whole_note_duration)
+
+    # time for relative times!
+    #start = current_time + (10 * i * whole_note_duration)
+    start = (10 * i * whole_note_duration)
     notes.append(Note(start, start + 10 * whole_note_duration, 'o'))
 
 
@@ -119,8 +123,11 @@ def voice_sort(v: Voice) -> int:
         return v.note.start
 
 cycle_counter: int = 0
+start_time: int = time.time_ns()
+
 while notes:
     current_time = time.time_ns()
+    relative_time = current_time - start_time
     chunks = []
     #for voice in voices:
     #    chunks.append(voice.get_chunk())
@@ -129,7 +136,7 @@ while notes:
     started_notes = []
 
     for note in notes:
-        if current_time > note.start:
+        if relative_time > note.start:
             # send to voice.
             started_notes.append(note)
 
@@ -157,7 +164,7 @@ while notes:
     for v in voices:
         if v.note != None:
             #chunks.append(v.get_chunk(current_time))
-            chunks.append(v.get_signal(current_time))
+            chunks.append(v.get_signal(relative_time))
     # sometimes a cycle only takes 0 ns, which is impossible.
     # my guess is that it doesn't get run. checked it, it's the only possible
     # way of it being 0 ns.
