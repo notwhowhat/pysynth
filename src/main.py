@@ -34,6 +34,7 @@ sample_duration_ns = 1000000000 / 44100
 
 bpm = 120
 whole_note_duration = int(60000000000 / 120)
+
 def play(*chunks):
     master_chunk = np.zeros((CHUNK))
     #print(len(chunks))
@@ -83,7 +84,7 @@ current_time = time.time_ns()
 # will be done now.
 
 empty_chunk = np.zeros(CHUNK)
-voice_count: int = 3
+voice_count: int = 2
 
 voices = []
 for i in range(voice_count):
@@ -125,6 +126,8 @@ def voice_sort(v: Voice) -> int:
 cycle_counter: int = 0
 start_time: int = time.time_ns()
 
+voice_stealing: bool = False
+print('Initialization finished')
 while True:
     current_time = time.time_ns()
     relative_time = current_time - start_time
@@ -149,22 +152,28 @@ while True:
             # it is not empty!
 
             # now it only works with free voices
+            # XXX: basically this is why the envelope gets reset. instead of checking the free voices first,
+            # so the free voices need to be added to s_voices.
             if voice.note == None:
                 voice.note = started_notes[0]
                 started_notes.pop(0)
                 notes.remove(voice.note)
             else:
-                # a wacky voice stealing procedure. be carefull at touch!
-                if len(s_voices) > 0:
-                    s_voices[0].note = started_notes[0]
-                    started_notes.pop(0)
-                    notes.remove(s_voices[0].note)
-                    s_voices.pop(0)
+                
+                if voice_stealing:
+                    # a wacky voice stealing procedure. be carefull at touch!
+                    if len(s_voices) > 0:
+                        s_voices[0].note = started_notes[0]
+                        started_notes.pop(0)
+                        notes.remove(s_voices[0].note)
+                        s_voices.pop(0)
 
     for v in voices:
         if v.note != None:
             #chunks.append(v.get_chunk(current_time))
-            chunks.append(v.get_signal(relative_time))
+            c = v.get_signal(relative_time)
+            #chunks.append(v.get_signal(relative_time))
+            chunks.append(c)
     # sometimes a cycle only takes 0 ns, which is impossible.
     # my guess is that it doesn't get run. checked it, it's the only possible
     # way of it being 0 ns.

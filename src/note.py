@@ -59,9 +59,11 @@ class Note:
                     self.state = 'on'
         else:
             # not being held, and it has finished!
-            if self.state == 'off':
+            if self.state == 'on':
                 # it was on last iterations so the first time it will be offtriggered
                 self.state = 'offtr'
+            else:
+                self.state = 'off'
 
 
                 #self.on = True

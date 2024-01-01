@@ -28,9 +28,9 @@ class Envelope:
     def __init__(self, voice: Voice) -> None:
         # the first thing that has to be implemented is a simple sustain envelope.
         self.on: bool = True
-        self.s_level: float = 20.0
-        self.ad_env: np.ndarray = np.linspace(0, 20, 2 * 44100)
-        self.r_env: np.ndarray = np.linspace(20, 0, 2 * 44100)
+        self.s_level: float = 1.0
+        self.ad_env: np.ndarray = np.linspace(0, 1, 2 * 44100)
+        self.r_env: np.ndarray = np.linspace(1, 0, 2 * 44100)
         self.type: str = 'adsr'
 
         self.prev_step: int = 0
@@ -52,7 +52,7 @@ class Envelope:
                 return self.ad_env[note.sample_step]
 
         elif self.type == 'adsr':
-            if note.state == 'ontr':
+            if note.state == 'ontr' or note.state == 'offtr':
                 note.sample_step = 0
 
             if note.state != 'off' and note.state != 'offtr':
@@ -60,6 +60,26 @@ class Envelope:
                     # the ad stage!
                     self.prev_step: int = note.sample_step
                     return self.ad_env[note.sample_step]
+                else:
+                    # sustatining the enviromental leval level!
+                    self.prev_step: int = note.sample_step
+                    return self.s_level
+            else:
+                if note.sample_step < len(self.r_env) - 1:
+                    # release yourself and fly!!!
+                    #return self.r_env[note.sample_step - self.prev_step]
+                    return self.r_env[note.sample_step]
+                else:
+                    # the note shouldn't excist now!!! but it does...
+                    note = None
+                    return 0
+
+
+
+
+
+
+                '''
                 elif note.sample_step < len(self.ad_env) - self.prev_step - 1: 
                     # sustatining the enviromental leval level!
                     self.prev_step: int = note.sample_step
@@ -76,6 +96,7 @@ class Envelope:
             else:
                 # the note shouldn't excist now!!! but it does...
                 return 0
+            '''
 
 
                         
