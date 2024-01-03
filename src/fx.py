@@ -56,14 +56,14 @@ class Amp:
 class Filter:
     def __init__(self, voice: Voice) -> None:
         self.voice: Voice = voice
-        self.ctoff_freq: float = 200.0
+        self.cutoff: float = 0.1
 
         self.sample_buffer: float = 0.0
         self.buffers: list = [0.0, 0.0]
         self.buffer0: float = 0.0
         self.buffer1: float = 0.0
 
-
+        self.coefficient: float = self.coef()
 
         # options are lp and hp
         self.type: str = 'lp'
@@ -74,23 +74,23 @@ class Filter:
     def filter(self, sample: float) -> float:
         # this is the main filtering method with choices of types.
         if self.type == 'lp':
-            #output: float = self.lowpass(sample)
-            #sample += self.allpass(sample)
-            #sample += self.allpass(sample)
-            #sample = self.allpass(sample)
-            # TODO: this is the only filter design that is the right one!!!!
-            sample = self.rlpf(sample)
-
+            for i in range(3):
+                sample = self.lpf(sample)
 
             output: float = sample
 
         return output
 
+    def coef(self):
+        # the filters need a coefficient for the cutoff.
+        # the coefficient is a time constant, but it needs to be altered by the 
+        # sample rate to work with the filtering as a coefficient.
+        return 1 / (1 + (2 * np.pi * self.cutoff / 44100))
 
     def lpf(self, sample: float) -> float:
         # a state based filter
         distance_to_go: float = sample - self.last_output
-        self.last_output += distance_to_go * 0.125
+        self.last_output += distance_to_go * self.coefficient#0.125
         return self.last_output
 
     def rlpf(self, sample: float) -> float:
@@ -99,54 +99,6 @@ class Filter:
         self.momentum += distance_to_go * 0.125
         self.last_output += self.momentum + distance_to_go * 0.125
         return self.last_output
-
-     
-
-    def allpass(self, sample: float) -> float:
-        # 2nd order filter.
-        # the problem is that it gets allpassed twice, but only lowpassed once!
-        ctan: float = np.tan(np.pi * self.ctoff_freq / 44100)
-        coefficient: float = (ctan - 1) / (ctan + 1)
-
-        output0 = coefficient * sample + self.buffers[0]
-        self.buffers[0] = sample - coefficient * output0
-        sample += output0
-
-        #output1 = coefficient * sample + self.buffers[1]
-        #self.buffers[1] = sample - coefficient * output1
-        #sample += output1
-
-        #output = output1
-        return output0
-
-
-
-    def fallpass(self, sample: float) -> float:
-        # a first order filter
-        ctan: float = np.tan(np.pi * self.ctoff_freq / 44100)
-        coefficient: float = (ctan - 1) / (ctan + 1)
-
-        output = coefficient * sample + self.sample_buffer
-        self.sample_buffer = sample - coefficient * output
-
-        return output
-
-    def lpf(self, sample: float) -> float:
-        # a state based filter
-        distance_to_go: float = sample - self.last_output
-        self.last_output += distance_to_go * 0.125
-        return self.last_output
-
-    def rlpf(self, sample: float) -> float:
-        # a resonant state based filter
-        distance_to_go: float = sample - self.last_output
-        self.momentum += distance_to_go * 0.125
-        self.last_output += self.momentum + distance_to_go * 0.125
-        return self.last_output
-
-        
-
-
 
 
 
