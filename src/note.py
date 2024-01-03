@@ -22,7 +22,8 @@ class Note:
         # which chunk it is on.
         self.chunk_step: int = 0
         self.sample_step: int = 0
-        self.freq = random.randint(330, 660)
+        #self.freq = random.randint(330, 660)
+        self.freq: float = 440.0
 
         # there will be four different states:
         # off, no key is held

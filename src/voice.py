@@ -4,6 +4,7 @@ import note
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.signal import square
 
 CHUNK: int = 1024
 
@@ -57,7 +58,23 @@ class Voice:
             for e in empty_chunk:
                 # signal will be generated sample-wise
                 sample: float = np.sin(2.0 * np.pi / (44100 / self.note.freq) * e)
+                #sample: float = square(2.0 * np.pi / (44100 / self.note.freq) * e)
+                #sample: float = square(self.note.freq * e)
+                if sample > 0:
+                    sample = 1
+                elif sample < 0:
+                    sample = -1
+
+
+                #sample = self.filter.lpf(sample)
+                #sample = self.filter.rlpf(sample)
+                #sample = self.filter.get_filtered(sample)
+                sample = self.filter.filter(sample)
+
+
+
                 sample = self.amp.amplify(sample)
+
                 chunk = np.append(chunk, sample)
 
                 # the sample step must be incremented every sample
