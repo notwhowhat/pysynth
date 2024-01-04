@@ -1,6 +1,7 @@
 import modulators
 import fx
 import note
+import oscillator
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,6 +13,7 @@ class Voice:
     def __init__(self) -> None:
         # the voice's purpoouse is to be able to use instances for the notes.
         # handles and playes the note that is sent to it.
+        self.osc: Osc = oscillator.Osc(self)
         self.amp: Amp = fx.Amp(self)
         self.filter: Filter = fx.Filter(self)
         self.note: note.Note = None
@@ -57,18 +59,16 @@ class Voice:
 
             for e in empty_chunk:
                 # signal will be generated sample-wise
-                sample: float = np.sin(2.0 * np.pi / (44100 / self.note.freq) * e)
+                #sample: float = np.sin(2.0 * np.pi / (44100 / self.note.freq) * e)
                 #sample: float = square(2.0 * np.pi / (44100 / self.note.freq) * e)
                 #sample: float = square(self.note.freq * e)
-                if sample > 0:
-                    sample = 1
-                elif sample < 0:
-                    sample = -1
+                #if sample > 0:
+                #    sample = 1
+                #elif sample < 0:
+                #    sample = -1
+                self.osc.freq = self.note.freq
+                sample: float = self.osc.run(e)
 
-
-                #sample = self.filter.lpf(sample)
-                #sample = self.filter.rlpf(sample)
-                #sample = self.filter.get_filtered(sample)
                 sample = self.filter.filter(sample)
 
 

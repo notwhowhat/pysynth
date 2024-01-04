@@ -11,12 +11,13 @@ from scipy.signal import butter
 import time
 import random
 
+from globals import *
+
 from voice import Voice
 from note import Note
 
-#import keyboard
 
-CHUNK = 1024
+#CHUNK = 1024
 
 # only try files in mono, at 44100hz
 file = '../see_the_sun.wav'
@@ -70,7 +71,7 @@ p: pyaudio.PyAudio = pyaudio.PyAudio()
 stream = p.open(
         format=pyaudio.paInt16,
         channels=1,
-        rate=44100,
+        rate=SAMPLE_RATE,
         output=True
 )
 

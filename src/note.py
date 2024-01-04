@@ -1,6 +1,6 @@
 import random
 
-CHUNK: int = 1024
+from globals import *
 
 class Note:
     def __init__(self, start: int, end: int, source: str, freq: float = 440.0) -> None:
@@ -23,7 +23,7 @@ class Note:
         self.chunk_step: int = 0
         self.sample_step: int = 0
         #self.freq = random.randint(330, 660)
-        self.freq: float = 110.0
+        self.freq: float = 880.0
 
         # there will be four different states:
         # off, no key is held

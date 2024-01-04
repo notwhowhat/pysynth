@@ -8,7 +8,7 @@ import random
 from modulators import *
 from fx import *
 
-CHUNK: int = 1024
+from globals import *
 
 class Amp:
     def __init__(self, voice: Voice):
@@ -56,7 +56,8 @@ class Amp:
 class Filter:
     def __init__(self, voice: Voice) -> None:
         self.voice: Voice = voice
-        self.cutoff: float = 0.1
+        self.cutoff: float = 100
+        self.resonance: float = 0 # 0 = high max, 1 = low max.
 
         self.sample_buffer: float = 0.0
         self.buffers: list = [0.0, 0.0]
@@ -64,6 +65,7 @@ class Filter:
         self.buffer1: float = 0.0
 
         self.coefficient: float = self.coef()
+        print(self.coefficient)
 
         # options are lp and hp
         self.type: str = 'lp'
@@ -74,8 +76,10 @@ class Filter:
     def filter(self, sample: float) -> float:
         # this is the main filtering method with choices of types.
         if self.type == 'lp':
-            for i in range(3):
-                sample = self.lpf(sample)
+            #for i in range(3):
+            o0 = self.lpf(sample)
+            sample = self.lpf(o0)
+            #sample = self.rlpf(sample)
 
             output: float = sample
 
@@ -85,19 +89,20 @@ class Filter:
         # the filters need a coefficient for the cutoff.
         # the coefficient is a time constant, but it needs to be altered by the 
         # sample rate to work with the filtering as a coefficient.
-        return 1 / (1 + (2 * np.pi * self.cutoff / 44100))
+        ctan: float = np.tan(np.pi * self.cutoff / SAMPLE_RATE)
+        ctan /= 1.0 + ctan
+        return ctan 
 
     def lpf(self, sample: float) -> float:
         # a state based filter
-        distance_to_go: float = sample - self.last_output
-        self.last_output += distance_to_go * self.coefficient#0.125
+        self.last_output += (sample - self.last_output) * self.coefficient
         return self.last_output
 
     def rlpf(self, sample: float) -> float:
         # a resonant state based filter
         distance_to_go: float = sample - self.last_output
-        self.momentum += distance_to_go * 0.125
-        self.last_output += self.momentum + distance_to_go * 0.125
+        self.momentum += distance_to_go * self.coefficient
+        self.last_output += self.momentum + distance_to_go * self.resonance
         return self.last_output
 
 

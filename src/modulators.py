@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 import numpy as np
 
 from helpers import *
+from globals import *
 
 class LFO:
     def __init__(self, voice: Voice) -> None:
