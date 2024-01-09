@@ -30,8 +30,8 @@ class Envelope:
         # the first thing that has to be implemented is a simple sustain envelope.
         self.on: bool = True
         self.s_level: float = 1.0
-        self.ad_env: np.ndarray = np.linspace(0, 1, 2 * 44100)
-        self.r_env: np.ndarray = np.linspace(1, 0, 2 * 44100)
+        self.ad_env: np.ndarray = np.linspace(0, 1, int(0.25 * 44100))
+        self.r_env: np.ndarray = np.linspace(1, 0, int(0.25 * 44100))
         self.type: str = 'adsr'
 
         self.prev_step: int = 0
@@ -72,10 +72,9 @@ class Envelope:
                     return self.r_env[note.sample_step]
                 else:
                     # the note shouldn't excist now!!! but it does...
+                    #print('note removed')
                     note = None
                     return 0
-
-
 
 
 

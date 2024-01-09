@@ -48,7 +48,10 @@ class Voice:
             self.note.triggered = False
         #return np.zeros((CHUNK))
         '''
-        self.note.set_state(current_time)
+        #self.note.set_state(current_time)
+        self.note.set(current_time)
+
+
 
         self.note.on = True
 
@@ -69,7 +72,7 @@ class Voice:
                 self.osc.freq = self.note.freq
                 sample: float = self.osc.run(e)
 
-                sample = self.filter.filter(sample)
+                #sample = self.filter.filter(sample)
 
 
 

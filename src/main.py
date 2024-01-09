@@ -10,8 +10,10 @@ from scipy.signal import butter
 
 import time
 import random
+import keyboard
 
 from globals import *
+from helpers import get_factor
 
 from voice import Voice
 from note import Note
@@ -25,7 +27,6 @@ sampler_sample = []
 sample_step = 0
 note_on = True
 play_list = []
-notes = []
 
 bass_freq = 466.16
 
@@ -85,11 +86,47 @@ current_time = time.time_ns()
 # will be done now.
 
 empty_chunk = np.zeros(CHUNK)
-voice_count: int = 2
+voice_count: int = 4
 
 voices = []
 for i in range(voice_count):
     voices.append(Voice())
+
+all_notes: list = []
+notes: list = []
+keyboard_notes: list = []
+
+class Key:
+    def __init__(self, key: 'str', freq: float) -> None:
+        self.key = key
+        self.freq = freq
+        self.on = False
+
+keyboard_histr  = "   W | E       T | Y | U       O | P "
+keyboard_midstr = " ----------------------------------- "
+keyboard_lowstr = " A | S | D | F | G | H | J | K | L   "
+
+keyboard_keys: list = [
+    'a', 'w', 's', 'e',
+    'd', 'f', 't', 'g',
+    'y', 'h', 'u', 'j',
+]
+
+# a, which is located at this index has 440 hz.
+a_index: int = 11 - 9
+
+# XXX: be ware of crazy code.
+keys: list = []
+for i, k in enumerate(reversed(keyboard_keys)):
+    freq_factor: float = get_factor(440, i - a_index)
+    freq: float = 440 * freq_factor
+
+    keys.append(Key(key=k, freq=freq))
+    print('f:', freq, 'k:', k)
+
+
+
+
 
 for i in range(3):
     # add notes
@@ -97,29 +134,27 @@ for i in range(3):
     # time for relative times!
     #start = current_time + (10 * i * whole_note_duration)
     start = (10 * i * whole_note_duration)
-    notes.append(Note(start, start + 10 * whole_note_duration, 'o'))
+    #notes.append(Note(start=start, end=start + 10 * whole_note_duration))
+
+    # TODO: make this work now
+    # key needs to be passed.
+    #notes.append(Note(start=start, end=start + 10 * whole_note_duration))
+    notes.append(Note(keys[0], start=start, end=start + 10 * whole_note_duration))
 
 
-#    voices[i].note = notes[0]
+
+
+
 
 # there is something with the trigger, that does so that the voices can't play multiple notes
 # simultaniously aswell as only being able to play notes before they have been zero, which
 # leads to no audio output.
 
-# investigate further on the trigger.
-#voices[0].note = notes[0]
-#voices[1].note = notes[1]
-#voices[2].note = notes[2]
-
-# this is weird and crazy. i don't think that it is caused by the trigger, because it still exists
-# when the amp is disabled, which does so that it has nothing to do with the trigger.
-
-
 # TODO: just a sligt problem. the notes are always on from the beginning. should
 # be simple to fix and related to the note.started variable which is recently added.
 
 def voice_sort(v: Voice) -> int:
-    if v.note == None:
+    if v.note == None or v.note.start == None:
         return 0
     else:
         return v.note.start
@@ -127,21 +162,54 @@ def voice_sort(v: Voice) -> int:
 cycle_counter: int = 0
 start_time: int = time.time_ns()
 
-voice_stealing: bool = False
+voice_stealing: bool = True
+
+space_note: bool = False
+
+# all notes that are on, or that have been or that will be should end up here.
+# TODO: fix this and make it better.
+# time for a major arcetectural upgrade.
+# instead of directly checking the note times for to see if they are on, it will instead
+# just check how the states are.
+# the states will then be set by either a sequencer or manual input through a keyboard.
+
 print('Initialization finished')
 while True:
     current_time = time.time_ns()
     relative_time = current_time - start_time
     chunks = []
-    #for voice in voices:
-    #    chunks.append(voice.get_chunk())
-    #chunks.append(voices[0].get_chunk())
-    #voices[0].note.chunk_step += 1 # the chunk param
+
+    for key in keys:
+        # insane ammounts of lag...
+        if keyboard.is_pressed(key.key):
+            print('holding')
+            if key.on == False:
+                #note: Note = Note(start=relative_time, end=relative_time + 10 * whole_note_duration, freq=key.freq)
+                note: Note = Note(key)
+                all_notes.append(note)
+                notes.append(note)
+                keyboard_notes.append(note)
+
+                print('note added')
+                key.on = True
+        else:
+            key.on = False
+
+    for note in keyboard_notes:
+        # check if the key.objects are on
+        pass
+
+
+
+    # all of the voice handeling code
     started_notes = []
 
     for note in notes:
-        if relative_time > note.start:
-            # send to voice.
+        if note.start != None:
+            if relative_time > note.start:
+                # send to voice.
+                started_notes.append(note)
+        else:
             started_notes.append(note)
 
     #for note in started_notes:
@@ -181,6 +249,7 @@ while True:
     # basically, it doesn't get played, and the chunks don't get generated.
 
     #print(chunks)
+    print('notes len', len(notes))
     play(*chunks)
 
     #print('all time elapsed ' + str(timer - time.time_ns()))
