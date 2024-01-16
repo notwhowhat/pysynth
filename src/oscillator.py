@@ -14,7 +14,7 @@ class Osc:
         self.freq: float = 440.0
 
         # types are: 'sin', 'square'
-        self.type: str = 'square'
+        self.type: str = 'sin'
 
     def run(self, sample: float) -> float:
         if self.type == 'sin':

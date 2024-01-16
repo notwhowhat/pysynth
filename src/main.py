@@ -68,24 +68,9 @@ stream = p.open(
 )
 
 current_time = time.time_ns()
-# make the timings relative, because otherwise the load times of the notes
-# do so that they don't get played, because the loading is 1.1+ seconds, when a note
-# can be less than 1 sec.
-# this does so that notes get triggered before they get played, sometimes a few seconds
-# and then they don't get played.
-# done!!!
-
-# will be done now.
 
 empty_chunk = np.zeros(CHUNK)
-voice_count: int = 16
-# one of my things don't work so well, so everything starts to stutter if there are more than 2 voices.
-# one of the notes doesn't turn off
-
-# bassically, it works when the chunk getting inputted are 2, otherwise, it starts to stutter.
-# after the first 2 notes, it becomes 3.
-# what is the difference with the second and third notes? well one of the second voice has the note for the first time. not the third.
-# that's not really how it works. it is more that it happens at note 7 or 8.
+voice_count: int = 32
 
 voices = []
 for i in range(voice_count):
@@ -137,39 +122,9 @@ def play(*chunks):
     print('notes len', len(notes), 'chunks', len(chunks))
     stream.write(master_chunk.astype(np.int16).tobytes())
 
-
-# basically the stutter bug is not based on clipping. instead it is because too 
-# many notes are getting passed into the master chunk at once, even those that are turned off.
-# this probably got implemented when i changed the states for the note system, but forgot to do
-# so that some get removed from being sent to the chunks.
-
-# i have gotten closer to solving the bug. something is weird, because after the first and second notes
-# being played and finished, only one less note is none, which is the normal behaviour actually. instead,
-# the notes after are played, but not put to none. weird!
-
-
-
-#for i in range(3):
 for i, e in enumerate(keys):
-    # add notes
-
-    # time for relative times!
-    #start = current_time + (10 * i * whole_note_duration)
-    start = (4 * i * whole_note_duration)
-    #notes.append(Note(start=start, end=start + 10 * whole_note_duration))
-
-    # key needs to be passed.
-    # done!
-    #notes.append(Note(start=start, end=start + 10 * whole_note_duration))
-    #notes.append(Note(keys[0], start=start, end=start + 10 * whole_note_duration, sequencer=True))
-    notes.append(Note(e, start=start, end=start + 2 * whole_note_duration, sequencer=True))
-    #notes.append(Note(e, start=start, end=start + 5 * whole_note_duration, sequencer=True))
-
-
-
-# there is something with the trigger, that does so that the voices can't play multiple notes
-# simultaniously aswell as only being able to play notes before they have been zero, which
-# leads to no audio output.
+    start = (2 * i * whole_note_duration)
+    notes.append(Note(e, start=start, end=start + 1 * whole_note_duration, sequencer=True))
 
 def voice_sort(v: Voice) -> int:
     if v.note == None or v.note.start == None:
@@ -192,12 +147,8 @@ space_note: bool = False
 # the states will then be set by either a sequencer or manual input through a keyboard.
 
 output: np.ndarray = np.array(())
-outputs: list = [
-    np.array(()),
-    np.array(()),
-    np.array(()),
-    np.array(()),
-]
+
+# the stuttering isn't compleetly fixed. it comes after plating ten notes on the sequencer.
 
 print('Initialization finished')
 try:
