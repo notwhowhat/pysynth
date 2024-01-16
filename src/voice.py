@@ -94,5 +94,26 @@ class Voice:
             return chunk
         return np.zeros((CHUNK))
 
+    def get_sample(self, step: int, time: int) -> float:
+        # XXX: should be controlled from main instead
+        step = self.note.sample_step
+        # setting the note to the right time.
+        self.note.set(time)
+        self.osc.freq = self.note.freq
+
+        # getting the sample
+        sample: float = self.osc.run(step)
+        sample = self.amp.amplify(sample)
+
+        self.note.sample_step += 1
+
+        return sample
+
+
+
+
+
+
+
 
 

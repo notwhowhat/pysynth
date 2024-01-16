@@ -78,7 +78,7 @@ current_time = time.time_ns()
 # will be done now.
 
 empty_chunk = np.zeros(CHUNK)
-voice_count: int = 2
+voice_count: int = 16
 # one of my things don't work so well, so everything starts to stutter if there are more than 2 voices.
 # one of the notes doesn't turn off
 
@@ -264,11 +264,16 @@ try:
         for i, v in enumerate(voices):
             if v.note != None:
                 #chunks.append(v.get_chunk(current_time))
-                c = v.get_signal(relative_time)
+                chunk: np.ndarray = np.zeros((CHUNK))
+
+                for i, e in enumerate(chunk):
+                    #chunk[i] = v.get_signal(relative_time)
+                    chunk[i] = v.get_sample(0, relative_time)
+
+                #c = v.get_signal(relative_time)
                 #chunks.append(v.get_signal(relative_time))
-                chunks.append(c)
-                output = np.append(output, c)
-                #outputs[i] = np.append(outputs[i], c)
+                chunks.append(chunk)
+                #output = np.append(output, c)
                 pass
             else:
                 notecnt += 1
