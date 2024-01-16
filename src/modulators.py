@@ -32,7 +32,10 @@ class Envelope:
         self.s_level: float = 1.0
         self.ad_env: np.ndarray = np.linspace(0, 1, int(0.25 * 44100))
         self.r_env: np.ndarray = np.linspace(1, 0, int(0.25 * 44100))
-        self.type: str = 'adsr'
+        self.type: str = 's'
+        #self.type: str = 'adsr'
+
+
 
         self.prev_step: int = 0
 
@@ -73,7 +76,10 @@ class Envelope:
                 else:
                     # the note shouldn't excist now!!! but it does...
                     #print('note removed')
-                    note = None
+
+                    # this. gets called way to many times, even when it shouldn't. this means that 
+                    # the notes aren't getting called deleted correctly.
+                    note.state = 'done'
                     return 0
 
 
@@ -88,7 +94,6 @@ class Envelope:
                 elif note.sample_step >= len(self.ad_env) + len(self.r_env) - 2:
                     # wooohoooooo!
                     # the note should actually note exsist for to lighten the load on the voice system.
-                    # TODO: make the note None before the return
                     return 0
                 else:
                     # release yourself and fly!!!

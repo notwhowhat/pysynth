@@ -36,15 +36,6 @@ sample_duration_ns = 1000000000 / 44100
 
 bpm = 120
 whole_note_duration = int(60000000000 / 120)
-
-def play(*chunks):
-    master_chunk = np.zeros((CHUNK))
-    #print(len(chunks))
-    for chunk in chunks:
-        if len(chunk) == CHUNK:
-            master_chunk += chunk
-    stream.write(master_chunk.astype(np.int16).tobytes())
-
 # this block is for the old reader.
 '''
 with wave.open(file, 'rb') as wf:
@@ -77,16 +68,24 @@ stream = p.open(
 )
 
 current_time = time.time_ns()
-# TODO: make the timings relative, because otherwise the load times of the notes
+# make the timings relative, because otherwise the load times of the notes
 # do so that they don't get played, because the loading is 1.1+ seconds, when a note
 # can be less than 1 sec.
 # this does so that notes get triggered before they get played, sometimes a few seconds
 # and then they don't get played.
+# done!!!
 
 # will be done now.
 
 empty_chunk = np.zeros(CHUNK)
-voice_count: int = 4
+voice_count: int = 2
+# one of my things don't work so well, so everything starts to stutter if there are more than 2 voices.
+# one of the notes doesn't turn off
+
+# bassically, it works when the chunk getting inputted are 2, otherwise, it starts to stutter.
+# after the first 2 notes, it becomes 3.
+# what is the difference with the second and third notes? well one of the second voice has the note for the first time. not the third.
+# that's not really how it works. it is more that it happens at note 7 or 8.
 
 voices = []
 for i in range(voice_count):
@@ -125,33 +124,52 @@ for i, k in enumerate(reversed(keyboard_keys)):
     print('f:', freq, 'k:', k)
 
 
+def play(*chunks):
+    master_chunk = np.zeros((CHUNK))
+    #print(len(chunks))
+    for chunk in chunks:
+        #if len(chunk) == CHUNK:
+        master_chunk += chunk
+
+    #plt.plot(master_chunk)
+    #plt.show()
+
+    print('notes len', len(notes), 'chunks', len(chunks))
+    stream.write(master_chunk.astype(np.int16).tobytes())
+
+
+# basically the stutter bug is not based on clipping. instead it is because too 
+# many notes are getting passed into the master chunk at once, even those that are turned off.
+# this probably got implemented when i changed the states for the note system, but forgot to do
+# so that some get removed from being sent to the chunks.
+
+# i have gotten closer to solving the bug. something is weird, because after the first and second notes
+# being played and finished, only one less note is none, which is the normal behaviour actually. instead,
+# the notes after are played, but not put to none. weird!
 
 
 
-for i in range(3):
+#for i in range(3):
+for i, e in enumerate(keys):
     # add notes
 
     # time for relative times!
     #start = current_time + (10 * i * whole_note_duration)
-    start = (10 * i * whole_note_duration)
+    start = (4 * i * whole_note_duration)
     #notes.append(Note(start=start, end=start + 10 * whole_note_duration))
 
-    # TODO: make this work now
     # key needs to be passed.
+    # done!
     #notes.append(Note(start=start, end=start + 10 * whole_note_duration))
-    notes.append(Note(keys[0], start=start, end=start + 10 * whole_note_duration))
-
-
-
+    #notes.append(Note(keys[0], start=start, end=start + 10 * whole_note_duration, sequencer=True))
+    notes.append(Note(e, start=start, end=start + 2 * whole_note_duration, sequencer=True))
+    #notes.append(Note(e, start=start, end=start + 5 * whole_note_duration, sequencer=True))
 
 
 
 # there is something with the trigger, that does so that the voices can't play multiple notes
 # simultaniously aswell as only being able to play notes before they have been zero, which
 # leads to no audio output.
-
-# TODO: just a sligt problem. the notes are always on from the beginning. should
-# be simple to fix and related to the note.started variable which is recently added.
 
 def voice_sort(v: Voice) -> int:
     if v.note == None or v.note.start == None:
@@ -173,87 +191,101 @@ space_note: bool = False
 # just check how the states are.
 # the states will then be set by either a sequencer or manual input through a keyboard.
 
+output: np.ndarray = np.array(())
+outputs: list = [
+    np.array(()),
+    np.array(()),
+    np.array(()),
+    np.array(()),
+]
+
 print('Initialization finished')
-while True:
-    current_time = time.time_ns()
-    relative_time = current_time - start_time
-    chunks = []
+try:
+    while True:
+        current_time = time.time_ns()
+        relative_time = current_time - start_time
+        chunks = []
 
-    for key in keys:
-        # insane ammounts of lag...
-        if keyboard.is_pressed(key.key):
-            print('holding')
-            if key.on == False:
-                #note: Note = Note(start=relative_time, end=relative_time + 10 * whole_note_duration, freq=key.freq)
-                note: Note = Note(key)
-                all_notes.append(note)
-                notes.append(note)
-                keyboard_notes.append(note)
+        for key in keys:
+            # insane ammounts of lag...
+            if keyboard.is_pressed(key.key):
+                if key.on == False:
+                    #note: Note = Note(start=relative_time, end=relative_time + 10 * whole_note_duration, freq=key.freq)
+                    note: Note = Note(key)
+                    all_notes.append(note)
+                    notes.append(note)
+                    keyboard_notes.append(note)
 
-                print('note added')
-                key.on = True
-        else:
-            key.on = False
-
-    for note in keyboard_notes:
-        # check if the key.objects are on
-        pass
-
-
-
-    # all of the voice handeling code
-    started_notes = []
-
-    for note in notes:
-        if note.start != None:
-            if relative_time > note.start:
-                # send to voice.
-                started_notes.append(note)
-        else:
-            started_notes.append(note)
-
-    #for note in started_notes:
-        #notes.remove(note)
-    s_voices = sorted(voices, key=voice_sort)
-
-    for voice in voices:
-        if len(started_notes) > 0:
-            # it is not empty!
-
-            # now it only works with free voices
-            # XXX: basically this is why the envelope gets reset. instead of checking the free voices first,
-            # so the free voices need to be added to s_voices.
-            if voice.note == None:
-                voice.note = started_notes[0]
-                started_notes.pop(0)
-                notes.remove(voice.note)
+                    print('note added')
+                    key.on = True
             else:
-                
-                if voice_stealing:
-                    # a wacky voice stealing procedure. be carefull at touch!
-                    if len(s_voices) > 0:
-                        s_voices[0].note = started_notes[0]
-                        started_notes.pop(0)
-                        notes.remove(s_voices[0].note)
-                        s_voices.pop(0)
+                key.on = False
 
-    for v in voices:
-        if v.note != None:
-            #chunks.append(v.get_chunk(current_time))
-            c = v.get_signal(relative_time)
-            #chunks.append(v.get_signal(relative_time))
-            chunks.append(c)
-    # sometimes a cycle only takes 0 ns, which is impossible.
-    # my guess is that it doesn't get run. checked it, it's the only possible
-    # way of it being 0 ns.
-    # basically, it doesn't get played, and the chunks don't get generated.
 
-    #print(chunks)
-    print('notes len', len(notes))
-    play(*chunks)
 
-    #print('all time elapsed ' + str(timer - time.time_ns()))
-    cycle_counter += 1
+        # all of the voice handeling code
+        started_notes = []
+
+        for note in notes:
+            if note.start != None:
+                if relative_time > note.start:
+                    # send to voice.
+                    started_notes.append(note)
+            else:
+                started_notes.append(note)
+
+        #for note in started_notes:
+            #notes.remove(note)
+        s_voices = sorted(voices, key=voice_sort)
+
+        for voice in voices:
+            if len(started_notes) > 0:
+                # it is not empty!
+
+                # now it only works with free voices
+                # XXX: basically this is why the envelope gets reset. instead of checking the free voices first,
+                # so the free voices need to be added to s_voices.
+                if voice.note == None:
+                    voice.note = started_notes[0]
+                    started_notes.pop(0)
+                    notes.remove(voice.note)
+                else:
+                    
+                    if voice_stealing:
+                        # a wacky voice stealing procedure. be carefull at touch!
+                        if len(s_voices) > 0:
+                            s_voices[0].note = started_notes[0]
+                            started_notes.pop(0)
+                            notes.remove(s_voices[0].note)
+                            s_voices.pop(0)
+
+        chunks = [np.zeros((CHUNK))]
+        notecnt = 0
+        for i, v in enumerate(voices):
+            if v.note != None:
+                #chunks.append(v.get_chunk(current_time))
+                c = v.get_signal(relative_time)
+                #chunks.append(v.get_signal(relative_time))
+                chunks.append(c)
+                output = np.append(output, c)
+                #outputs[i] = np.append(outputs[i], c)
+                pass
+            else:
+                notecnt += 1
+        print(notecnt)
+        # sometimes a cycle only takes 0 ns, which is impossible.
+        # my guess is that it doesn't get run. checked it, it's the only possible
+        # way of it being 0 ns.
+        # basically, it doesn't get played, and the chunks don't get generated.
+
+        #print(chunks)
+        play(*chunks)
+
+        #print('all time elapsed ' + str(timer - time.time_ns()))
+        cycle_counter += 1
+except KeyboardInterrupt:
+    plt.plot(output)
+    plt.show()
 
 stream.close()
 

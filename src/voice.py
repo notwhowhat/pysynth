@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import square
 
-CHUNK: int = 1024
+from globals import *
 
 class Voice:
     def __init__(self) -> None:

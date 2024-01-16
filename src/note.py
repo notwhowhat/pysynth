@@ -9,10 +9,10 @@ import random
 from globals import *
 
 class Note:
-    def __init__(self, key: Key, start: int = None, end: int = None) -> None:
+    def __init__(self, key: Key, start: int = None, end: int = None, sequencer=False) -> None:
         # only note data, no audio data :(
         # all of the times are in ns for performance.
-        self.state_updater: bool = False
+        self.state_updater: bool = sequencer
         self.key: Key = key
 
         if start == None or end == None:
@@ -63,7 +63,7 @@ class Note:
             if self.end > time:
                 if self.start < time:
                     # the note is being held, but is this the first time?
-                    if self.state != 'on' and self.state != 'ontr':
+                    if self.state == 'off' and self.state == 'offtr':
                         # well never has been or before!
                         # can not be triggering for multiple iterations.
                         self.state = 'ontr'
@@ -82,6 +82,9 @@ class Note:
                     # instead of having booleans for the states, i will instead use strings.
         else:
             self.manual()
+
+        if self.state == 'done':
+            self = None
 
         #'''
 
