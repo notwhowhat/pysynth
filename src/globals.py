@@ -5,5 +5,6 @@ CHUNK: int = 1024
 TAU: float = 2 * np.pi
 
 voice_count: int = 4
+osc_step: int = 0
 
 

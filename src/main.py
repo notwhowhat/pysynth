@@ -137,8 +137,6 @@ start_time: int = time.time_ns()
 
 voice_stealing: bool = True
 
-space_note: bool = False
-
 # all notes that are on, or that have been or that will be should end up here.
 # TODO: fix this and make it better.
 # time for a major arcetectural upgrade.
@@ -149,6 +147,7 @@ space_note: bool = False
 output: np.ndarray = np.array(())
 
 # the stuttering isn't compleetly fixed. it comes after plating ten notes on the sequencer.
+plot: bool = False
 
 print('Initialization finished')
 try:
@@ -239,11 +238,18 @@ try:
 
         #print('all time elapsed ' + str(timer - time.time_ns()))
         cycle_counter += 1
+        #osc_step += 1
+        osc_step += 1
 except KeyboardInterrupt:
-    plt.plot(output)
-    plt.show()
+    if plot:
+        plt.plot(output)
+        plt.show()
+    else:
+        stream.close()
+        p.terminate()
+
+        sys.exit()
 
 stream.close()
-
 p.terminate()
 

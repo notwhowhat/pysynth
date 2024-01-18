@@ -9,6 +9,22 @@ import numpy as np
 from helpers import *
 from globals import *
 
+class Param:
+    def __init__(self, value: float, modulator: LFO) -> None:
+        self.value: float = value
+        self.modulator: LFO = modulator
+
+    def modulate(self, step: int):
+        self.value *= self.modulator.generate(step)
+
+class Modulator:
+    def __init__(self) -> None:
+        pass
+
+    def generate(self) -> float:
+        return 0.0
+
+
 class LFO:
     def __init__(self, voice: Voice) -> None:
         # a basic lfo class to modulate other signals.
@@ -18,11 +34,14 @@ class LFO:
         self.rate: float = 2.0
         self.depth: int = 1
 
-    def get_osc(self, note: Note):
+    def generate(self, step: int) -> float:
+        return self.depth * np.sin(self.tau / (44100 / self.rate) * step)
+
+    def get_osc(self, step: int):
         # the oscillations are not pregenerated, instead they are done in
         # "realtime" because they are offsett by chunks, for to reduce clicking
-        indexed_chunk: np.ndarray = np.arange(note.chunk_step * CHUNK, 
-                                              note.chunk_step * CHUNK + CHUNK)
+        indexed_chunk: np.ndarray = np.arange(CHUNK * step, 
+                                              CHUNK * step + 1)
         return self.depth * np.sin(self.tau / (44100 / self.rate) * indexed_chunk)
 
 class Envelope:
@@ -30,8 +49,8 @@ class Envelope:
         # the first thing that has to be implemented is a simple sustain envelope.
         self.on: bool = True
         self.s_level: float = 1.0
-        self.ad_env: np.ndarray = np.linspace(0, 1, int(0.25 * 44100))
-        self.r_env: np.ndarray = np.linspace(1, 0, int(0.25 * 44100))
+        self.ad_env: np.ndarray = np.linspace(0, 1, int(1 * 44100))
+        self.r_env: np.ndarray = np.linspace(1, 0, int(2 * 44100))
         self.type: str = 's'
         #self.type: str = 'adsr'
 

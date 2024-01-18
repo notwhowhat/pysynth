@@ -69,10 +69,10 @@ class Voice:
                 #    sample = 1
                 #elif sample < 0:
                 #    sample = -1
-                self.osc.freq = self.note.freq
+                self.osc.freq.value = self.note.freq
                 sample: float = self.osc.run(e)
 
-                #sample = self.filter.filter(sample)
+                sample = self.filter.filter(sample)
 
 
 
@@ -99,7 +99,7 @@ class Voice:
         step = self.note.sample_step
         # setting the note to the right time.
         self.note.set(time)
-        self.osc.freq = self.note.freq
+        self.osc.freq.value = self.note.freq
 
         # getting the sample
         sample: float = self.osc.run(step)
