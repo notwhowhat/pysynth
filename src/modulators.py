@@ -19,10 +19,10 @@ class Param:
 
 class Modulator:
     def __init__(self) -> None:
-        pass
+        self.on: bool = False
 
     def generate(self) -> float:
-        return 0.0
+        return 1.0
 
 
 class LFO:
@@ -31,8 +31,8 @@ class LFO:
         # do not use as a standalone oscillator
         self.on: bool = False
         self.tau: float = 2.0 * np.pi
-        self.rate: float = 2.0
-        self.depth: int = 1
+        self.rate: float = 10.0
+        self.depth: int = 0.1
 
     def generate(self, step: int) -> float:
         return self.depth * np.sin(self.tau / (44100 / self.rate) * step)
