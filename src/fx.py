@@ -10,14 +10,60 @@ from fx import *
 
 from globals import *
 
+class Filter:
+    def __init__(self, voice: Voice, cutoff: float, resonance: float) -> None:
+        self.voice: Voice = voice
+
+        #self.cutoff_freq: float = cutoff_freq
+        #self.resonance: float = resonance
+
+        self.cutoff: Param = Param(cutoff, None)
+        self.resonance: Param = Param(resonance, None)
+
+
+
+        self.params(self.cutoff, self.resonance)
+
+    def params(self, cutoff_freq: float, resonance: float) -> None:
+        # these parameters were orignally in init only, but if you need to change the
+        # cutoff or res, all of the other variables also need to change.
+        self.omega_c: float = TAU * self.cutoff.value / SAMPLE_RATE
+        self.alpha: float = np.sin(self.omega_c) / (2.0 * self.resonance.value)
+
+        self.b0: float = (1.0 - np.cos(self.omega_c)) / 2.0
+        self.b1: float = 1.0 - np.cos(self.omega_c)
+        self.b2: float = self.b0
+
+        self.a0: float = 1.0 + self.alpha
+        self.a1: float = -2.0 + np.cos(self.omega_c)
+        self.a2: float = 1.0 - self.alpha
+
+        self.x1: float = 0.0
+        self.x2: float = 0.0
+        self.y1: float = 0.0
+        self.y2: float = 0.0
+
+    def filter(self, sample: float) -> float:
+        output = (self.b0 / self.a0) * sample + \
+                 (self.b1 / self.a0) * self.x1 + (self.b2 / self.a0) * self.x2 - \
+                 (self.a1 / self.a0) * self.y1 - (self.a2 / self.a0) * self.y2
+
+        self.x2 = self.x1
+        self.x1 = sample
+
+        self.y2 = self.y1
+        self.y1 = output
+
+        return output
+
 class Amp:
     def __init__(self, voice: Voice):
         self.voice: Voice = voice
         self.env: Envelope = Envelope(self.voice)
-        self.mod: LFO = LFO(self.voice)
+        self.mod: LFO = LFO(self.voice, 0.1, 10.0)
         
         # the gain isn't in dB, it's instead just a modifier.
-        self.gain: float = 1000
+        self.gain: float = 5000
 
     def amplify(self, sample: float) -> float:#chunk: np.ndarray):
         # TODO XXX: the envelope must react to the note.started and note.on for to
@@ -28,6 +74,7 @@ class Amp:
                 # use envelope first.
                 #sample *= self.env.senv(self.voice.note)
                 sample *= self.env.output(self.voice.note)
+                #sample *- self.env.generate(self.voice.note)
         #'''
         '''
         else:
@@ -53,10 +100,10 @@ class Amp:
         sample *= self.gain
         return sample 
 
-class Filter:
+class oFilter:
     def __init__(self, voice: Voice) -> None:
         self.voice: Voice = voice
-        self.cutoff: float = 100
+        self.cutoff: float = 0.1
         self.resonance: float = 0 # 0 = high max, 1 = low max.
 
         self.sample_buffer: float = 0.0

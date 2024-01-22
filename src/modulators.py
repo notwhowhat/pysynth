@@ -9,8 +9,10 @@ import numpy as np
 from helpers import *
 from globals import *
 
+# should every param have it's own modulation source? i think it could maybe be good,
+# but it would have to
 class Param:
-    def __init__(self, value: float, modulator: LFO) -> None:
+    def __init__(self, value: float, modulator: Modulator) -> None:
         self.value: float = value
         self.modulator: LFO = modulator
 
@@ -18,14 +20,29 @@ class Param:
         self.value *= self.modulator.generate(step)
 
 class Modulator:
-    def __init__(self) -> None:
-        self.on: bool = False
+    def __init__(self, voice: Voice) -> None:
+        self.voice: Voice = voice
+        self.on: bool = True
+        self.default: float = 1.0
 
     def generate(self) -> float:
-        return 1.0
+        return self.default
 
+class LFO(Modulator):
+    def __init__(self, voice: Voice, depth: float, rate: float) -> None:
+        super().__init__(voice)
 
-class LFO:
+        self.depth: float = depth
+        self.rate: float = rate
+        self.on = False
+
+    def generate(self, step: int) -> float:
+        if self.on:
+            return self.depth * np.sin(TAU / (SAMPLE_RATE / self.rate) * step)
+        else:
+            return self.default
+
+class oLFO:
     def __init__(self, voice: Voice) -> None:
         # a basic lfo class to modulate other signals.
         # do not use as a standalone oscillator
@@ -43,6 +60,111 @@ class LFO:
         indexed_chunk: np.ndarray = np.arange(CHUNK * step, 
                                               CHUNK * step + 1)
         return self.depth * np.sin(self.tau / (44100 / self.rate) * indexed_chunk)
+
+class eEnvelope(Modulator):
+    def __init__(self, voice: Voice) -> None:
+        super().__init__(voice)
+        # the first thing that has to be implemented is a simple sustain envelope.
+        self.s_level: float = 1.0
+        self.ad_env: np.ndarray = np.linspace(0, 1, int(1 * 44100))
+        self.r_env: np.ndarray = np.linspace(1, 0, int(2 * 44100))
+        self.type: str = 's'
+        #self.type: str = 'adsr'
+
+        self.prev_step: int = 0
+
+
+    def generate(self, note: Note) -> float:
+        if self.type == 's':
+            # the simplest s env possible
+            if note.state != 'off':
+                return self.s_level
+            return 0
+
+        elif self.type == 'ad':
+            if note.state == 'ontr':
+                note.sample_step = 0
+
+            if note.state != 'off':
+                if note.sample_step > len(self.ad_env) - 1:
+                    return 0
+                return self.ad_env[note.sample_step]
+
+        elif self.type == 'adsr':
+            if note.state == 'ontr' or note.state == 'offtr':
+                note.sample_step = 0
+
+            if note.state != 'off' and note.state != 'offtr':
+                if note.sample_step < len(self.ad_env) - 1:
+                    # the ad stage!
+                    self.prev_step: int = note.sample_step
+                    return self.ad_env[note.sample_step]
+                else:
+                    # sustatining the enviromental leval level!
+                    self.prev_step: int = note.sample_step
+                    return self.s_level
+            else:
+                if note.sample_step < len(self.r_env) - 1:
+                    # release yourself and fly!!!
+                    #return self.r_env[note.sample_step - self.prev_step]
+                    return self.r_env[note.sample_step]
+                else:
+                    # the note shouldn't excist now!!! but it does...
+                    #print('note removed')
+
+                    # this. gets called way to many times, even when it shouldn't. this means that 
+                    # the notes aren't getting called deleted correctly.
+                    note.state = 'done'
+                    return 0
+
+
+
+    def ogenerate(self, step: int, stage: str):
+        if self.type == 's':
+            # the simplest s env possible
+            if stage != 'off':
+                return self.s_level
+            return 0
+
+        elif self.type == 'ad':
+            if stage == 'ontr':
+                step = 0
+
+            if stage != 'off':
+                if step > len(self.ad_env) - 1:
+                    return 0
+                return self.ad_env[step]
+
+        elif self.type == 'adsr':
+            if stage == 'ontr' or stage == 'offtr':
+                step = 0
+
+            if stage != 'off' and stage != 'offtr':
+                if step < len(self.ad_env) - 1:
+                    # the ad stage!
+                    self.prev_step: int = step
+                    return self.ad_env[step]
+                else:
+                    # sustatining the enviromental leval level!
+                    self.prev_step: int = step
+                    return self.s_level
+            else:
+                if step < len(self.r_env) - 1:
+                    # release yourself and fly!!!
+                    #return self.r_env[note.sample_step - self.prev_step]
+                    return self.r_env[step]
+                else:
+                    # the note shouldn't excist now!!! but it does...
+                    #print('note removed')
+
+                    # this. gets called way to many times, even when it shouldn't. this means that 
+                    # the notes aren't getting called deleted correctly.
+                    stage = 'done'
+                    return 0
+
+
+
+
 
 class Envelope:
     def __init__(self, voice: Voice) -> None:

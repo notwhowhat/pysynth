@@ -15,7 +15,8 @@ class Voice:
         # handles and playes the note that is sent to it.
         self.osc: Osc = oscillator.Osc(self)
         self.amp: Amp = fx.Amp(self)
-        self.filter: Filter = fx.Filter(self)
+        self.filter: Filter = fx.Filter(self, 2500, 1.0)
+        #self.filter: GFilt = fx.GFilt(2500, 1.0)
         self.note: note.Note = None
 
         # time for major strutural revamp out of nowwhere!!!
@@ -103,6 +104,7 @@ class Voice:
 
         # getting the sample
         sample: float = self.osc.run(step)
+        sample = self.filter.filter(sample)
         sample = self.amp.amplify(sample)
 
         self.note.sample_step += 1

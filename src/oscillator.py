@@ -13,7 +13,7 @@ from modulators import *
 class Osc:
     def __init__(self, voice: Voice):
         self.voice: Voice = voice
-        self.mod: LFO = LFO(voice)
+        self.mod: LFO = LFO(voice, 0.1, 100.0)
         self.mod_amount: float = 1
 
         #self.freq: float = 440.0
@@ -32,10 +32,6 @@ class Osc:
         #self.freq *= mod 
 
         self.freq.modulate(step)
-
-
-
-
 
     def run(self, sample: float) -> float:
         self.modulate(sample)
