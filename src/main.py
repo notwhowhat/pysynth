@@ -11,12 +11,15 @@ from scipy.signal import butter
 import time
 import random
 import keyboard
+import colorama
 
 from globals import *
 from helpers import get_factor
 
 from voice import Voice
 from note import Note
+
+colorama.init()
 
 
 #CHUNK = 1024
@@ -116,6 +119,8 @@ def play(*chunks):
         #if len(chunk) == CHUNK:
         master_chunk += chunk
 
+    #master_chunk /= len(chunks)
+
     #plt.plot(master_chunk)
     #plt.show()
 
@@ -135,7 +140,13 @@ def voice_sort(v: Voice) -> int:
 cycle_counter: int = 0
 start_time: int = time.time_ns()
 
-voice_stealing: bool = True
+voice_stealing: bool = False
+
+# what i need to do now:
+# make a loop/pattern mode
+# for that i need a sequencer/looper kindof thing, that can send notes to the manager.
+# do this by making the relative time do stuff.
+
 
 # all notes that are on, or that have been or that will be should end up here.
 # TODO: fix this and make it better.
@@ -152,6 +163,7 @@ plot: bool = False
 print('Initialization finished')
 try:
     while True:
+        #print('\x1b[1A\x1b[2K')
         current_time = time.time_ns()
         relative_time = current_time - start_time
         chunks = []
@@ -170,8 +182,6 @@ try:
                     key.on = True
             else:
                 key.on = False
-
-
 
         # all of the voice handeling code
         started_notes = []
@@ -220,14 +230,16 @@ try:
                     #chunk[i] = v.get_signal(relative_time)
                     chunk[i] = v.get_sample(0, relative_time)
 
+                # this singlehandedly fixed the stuttering isue.
+                if chunk[-1] == 0:
+                    v.note = None
+
                 #c = v.get_signal(relative_time)
                 #chunks.append(v.get_signal(relative_time))
                 chunks.append(chunk)
                 #output = np.append(output, c)
-                pass
             else:
                 notecnt += 1
-        print(notecnt)
         # sometimes a cycle only takes 0 ns, which is impossible.
         # my guess is that it doesn't get run. checked it, it's the only possible
         # way of it being 0 ns.
@@ -240,16 +252,9 @@ try:
         cycle_counter += 1
         #osc_step += 1
         osc_step += 1
-except KeyboardInterrupt:
-    if plot:
-        plt.plot(output)
-        plt.show()
-    else:
-        stream.close()
-        p.terminate()
-
-        sys.exit()
-
+except:
+    pass
 stream.close()
 p.terminate()
+
 
