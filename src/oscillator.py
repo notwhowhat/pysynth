@@ -22,7 +22,11 @@ class Osc:
         self.freq: Param = Param(440.0, self.mod)
 
         # types are: 'sin', 'square'
+        self.type: str = 'straight'#'square'
+        self.type: str = 'sin'
         self.type: str = 'square'
+
+
 
     def modulate(self, step: int) -> None:
         #self.freq *= 1 - (self.mod.get_osc(osc_step) * self.mod_amount)
@@ -39,6 +43,12 @@ class Osc:
             sample: float = self.sin(sample)
         elif self.type == 'square':
             sample: float = self.square(sample)
+        elif self.type == 'noise':
+            sample: float = self.noise(sample)
+        elif self.type == 'straight':
+            sample: float = self.straight(sample)
+
+        self.old_freq: float = self.freq.value
 
         return sample
 
@@ -48,6 +58,12 @@ class Osc:
     def square(self, sample: float) -> float:
         sin = self.sin(sample)
         return np.ceil(sin)
+
+    def noise(self, sample: float) -> float:
+        return random.random()
+
+    def straight(self, sample: float) -> float:
+        return 1.0
 
 
 

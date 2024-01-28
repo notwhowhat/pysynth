@@ -118,18 +118,22 @@ def play(*chunks):
     for chunk in chunks:
         #if len(chunk) == CHUNK:
         master_chunk += chunk
+    master_chunk *= 0.5
 
     #master_chunk /= len(chunks)
 
     #plt.plot(master_chunk)
     #plt.show()
 
-    print('notes len', len(notes), 'chunks', len(chunks))
+    #print('notes len', len(notes), 'chunks', len(chunks))
     stream.write(master_chunk.astype(np.int16).tobytes())
 
 for i, e in enumerate(keys):
     start = (2 * i * whole_note_duration)
     notes.append(Note(e, start=start, end=start + 1 * whole_note_duration, sequencer=True))
+    notes.append(Note(e, start=start, end=start + 1 * whole_note_duration, sequencer=True))
+
+
 
 def voice_sort(v: Voice) -> int:
     if v.note == None or v.note.start == None:
@@ -155,18 +159,45 @@ voice_stealing: bool = False
 # just check how the states are.
 # the states will then be set by either a sequencer or manual input through a keyboard.
 
+# i did a test for the stuttering. it stutters when playing multiple notes at a time.
+
 output: np.ndarray = np.array(())
 
-# the stuttering isn't compleetly fixed. it comes after plating ten notes on the sequencer.
-plot: bool = False
+
+# looping time!!!
+loop_length: int = whole_note_duration * 8
+loop_start: int = start_time
+loop_notes: list = notes
+
+second_timer: int = time.time_ns()
+timer: int = time.time_ns()
+
 
 print('Initialization finished')
 try:
     while True:
         #print('\x1b[1A\x1b[2K')
         current_time = time.time_ns()
+        print(current_time - timer)
+        timer = current_time
         relative_time = current_time - start_time
         chunks = []
+
+        '''
+        if loop_start + loop_length < current_time:
+            loop_start = current_time
+            notes = loop_notes
+            print('looping')
+            for note in notes:
+                note.start -= start_time
+                note.end -= start_time
+
+                note.start += loop_start
+                note.end += loop_start
+        '''
+
+
+
 
         for key in keys:
             # insane ammounts of lag...

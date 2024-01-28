@@ -14,6 +14,7 @@ from globals import *
 class Param:
     def __init__(self, value: float, modulator: Modulator) -> None:
         self.value: float = value
+        self.prev_val: float = value
         self.modulator: LFO = modulator
 
     def modulate(self, step: int):
@@ -171,8 +172,8 @@ class Envelope:
         # the first thing that has to be implemented is a simple sustain envelope.
         self.on: bool = True
         self.s_level: float = 1.0
-        self.ad_env: np.ndarray = np.linspace(0, 1, int(1 * 44100))
-        self.r_env: np.ndarray = np.linspace(1, 0, int(2 * 44100))
+        self.ad_env: np.ndarray = np.linspace(0, 1, int(4 * 44100))
+        self.r_env: np.ndarray = np.linspace(1, 0, int(4 * 44100))
         self.type: str = 's'
         #self.type: str = 'adsr'
 
@@ -185,6 +186,7 @@ class Envelope:
             # the simplest s env possible
             if note.state != 'off':
                 return self.s_level
+            note = None
             return 0
 
         elif self.type == 'ad':

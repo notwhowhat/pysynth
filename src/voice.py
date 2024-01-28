@@ -15,7 +15,7 @@ class Voice:
         # handles and playes the note that is sent to it.
         self.osc: Osc = oscillator.Osc(self)
         self.amp: Amp = fx.Amp(self)
-        self.filter: Filter = fx.Filter(self, 2500, 1.0)
+        self.filter: Filter = fx.Filter(self, 1000, 1.0)
         #self.filter: GFilt = fx.GFilt(2500, 1.0)
         self.note: note.Note = None
 
